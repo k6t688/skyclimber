@@ -97,8 +97,10 @@ function screenToGame(sx,sy){return{x:(sx-canvasOffX)/canvasScale,y:(sy-canvasOf
 // ══════════════════════════════════════════════════════
 // 버전 리셋
 if(localStorage.getItem('sc_ver')!=='v5'){localStorage.removeItem('sc_chars');localStorage.removeItem('sc_stages');localStorage.removeItem('sc_skins');localStorage.setItem('sc_ver','v5');}
-// 테스트용: 캐릭터 전체 해금
+// 테스트용: 전체 해금
 localStorage.setItem('sc_chars',JSON.stringify(["human","mochi","cockroach","ice","rabbit","protein_stick"]));
+localStorage.setItem('sc_stages',JSON.stringify([1]));
+localStorage.setItem('sc_skins',JSON.stringify(["cockroach_crown","rabbit_frozen"]));
 const SAVE={
   get stagesCleared(){ try{return JSON.parse(localStorage.getItem('sc_stages')||'[]');}catch{return[];} },
   set stagesCleared(v){ localStorage.setItem('sc_stages',JSON.stringify(v)); },
@@ -2440,10 +2442,10 @@ function btlUpdatePlayer(p,dt,kL,kR,kJ){
     if(p.onGround){p.flyTimer=0;p.flying=false;}
   }
 
-  // 점프 (캐릭터별 분기)
+  // 점프 (캐릭터별 분기) — 바퀴벌레는 비행만 (점프 없음, 싱글모드와 동일)
   if(keys[kJ]&&!p._jumpHeld){
     if(isCockroach){
-      if(p.onGround&&p.jumps>0){p.vy=p.jumpForce;p.jumps--;p._jumpHeld=true;btlSpawnPt(p.x+p.w/2,p.worldY+p.h-btl.camY,p.color,6);}
+      // 바퀴벌레: 점프 없음, 비행은 위에서 처리
     }else if(hasCrouch){
       if(p.onGround&&!p.crouching&&!p.knocked){p.crouching=true;p.crouchTimer=0;p._jumpHeld=true;}
       else if(!p.onGround&&p.jumps>0){p.vy=p.airJumpForce;p.jumps--;p._jumpHeld=true;btlSpawnPt(p.x+p.w/2,p.worldY+p.h-btl.camY,'#d4c4a0',10);}
