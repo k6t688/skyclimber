@@ -2254,6 +2254,7 @@ function startBattle(testMode){
   const seed=Math.floor(Math.random()*999999);
   btl={
     camY:0,scrollSpeed:testMode?0:0.8,time:0,online:false,seed:seed,platIdx:0,testMode:!!testMode,
+    height:0,ship:null,shipSpawned:false,
     platforms:[],particles:[],projectiles:[],
     stars:Array.from({length:120},()=>({x:Math.random()*W,y:Math.random()*H,sz:Math.random()<0.3?2:1,tw:Math.random()*Math.PI*2,spd:0.02+Math.random()*0.04})),
     p1:btlMakePlayer(btlP1Char,W*0.3,1,'P1','#7ef',btlP1Skin),
@@ -2292,7 +2293,70 @@ function btlUpdate(dt){
   btl.time+=dt;
   for(const s of btl.stars)s.tw+=s.spd*dt;
   if(btl.state==='countdown'){btl.countdown-=dt;if(btl.countdown<=0)btl.state='playing';return;}
-  if(!btl.testMode){btl.scrollSpeed=Math.min(3.0,0.8+btl.time*0.0008);btl.camY-=btl.scrollSpeed*dt;}
+  if(!btl.testMode){
+    btl.scrollSpeed=Math.min(2.0,0.8+btl.time*0.0003);
+    // 우주선이 화면 중앙에 올 때 카메라 멈춤
+    if(btl.ship&&!btl.ship.launching){
+      const shipCenterScreen=btl.ship.worldY+btl.ship.h/2-btl.camY;
+      if(shipCenterScreen>H*0.4)btl.scrollSpeed=0;
+    }
+    btl.camY-=btl.scrollSpeed*dt;btl.height+=btl.scrollSpeed*dt*0.27;
+  }
+
+  // 우주선: 9800m 도달시 스폰 (카메라 바로 위에 생성)
+  if(!btl.testMode&&btl.height>=9800&&!btl.shipSpawned){
+    btl.shipSpawned=true;
+    const shipWY=btl.camY-H*0.3;
+    // 우주선까지 올라가는 발판들
+    const topPlat=Math.min(...btl.platforms.map(p=>p.worldY));
+    let stepY=topPlat;
+    while(stepY>shipWY+80){stepY-=55+Math.random()*30;const pw=80+Math.random()*60;btl.platforms.push({x:Math.random()*(W-pw),worldY:stepY,w:pw,h:14,type:'rock'});}
+    // 발사대 (넓은 바닥)
+    btl.platforms.push({x:W/2-140,worldY:shipWY,w:280,h:20,type:'star',isShipPad:true});
+    // 발사대 양옆 발판
+    btl.platforms.push({x:W/2-250,worldY:shipWY+40,w:100,h:14,type:'rock'});
+    btl.platforms.push({x:W/2+150,worldY:shipWY+40,w:100,h:14,type:'rock'});
+    btl.ship={x:W/2,worldY:shipWY-80,w:80,h:100,boarded:null,boardTimer:0,launching:false,launchVy:0,padY:shipWY};
+  }
+
+  // 우주선 탑승 체크
+  if(btl.ship&&!btl.ship.boarded&&!btl.ship.launching){
+    const s=btl.ship;
+    for(const p of[btl.p1,btl.p2]){
+      const px=p.x+p.w/2,py=p.worldY+p.h/2;
+      if(Math.abs(px-s.x)<50&&Math.abs(py-s.worldY-s.h/2)<60&&p.onGround){
+        s.boarded=p;p.vx=0;p.vy=0;break;
+      }
+    }
+  }
+
+  // 우주선 탑승 후 5초 카운트 → 발사
+  if(btl.ship&&btl.ship.boarded){
+    const s=btl.ship;
+    const bp=s.boarded;
+    // 탑승자 위치 고정 (우주선 창문)
+    bp.x=s.x-bp.w/2;bp.worldY=s.worldY+20;bp.vx=0;bp.vy=0;
+    s.boardTimer+=dt;
+    // 5초(300프레임) 후 발사
+    if(s.boardTimer>=300&&!s.launching){
+      s.launching=true;s.launchVy=0;
+    }
+    if(s.launching){
+      s.launchVy-=0.15*dt;
+      s.worldY+=s.launchVy*dt;
+      bp.x=s.x-bp.w/2;bp.worldY=s.worldY+20;
+      // 파티클 (화염)
+      for(let i=0;i<3;i++){
+        btl.particles.push({x:s.x-15+Math.random()*30,y:s.worldY+s.h-btl.camY+Math.random()*10,
+          vx:(Math.random()-0.5)*3,vy:3+Math.random()*4,life:1,decay:0.06+Math.random()*0.04,sz:4+Math.random()*4,col:i%2?'#ff6633':'#ffe066'});
+      }
+      // 화면 위로 사라지면 종료
+      if(s.worldY-btl.camY<-200){
+        btl.state='ended';
+        btl.winner=s.boarded===btl.p1?'P1':'P2';
+      }
+    }
+  }
 
   if(btl.online){
     // 온라인: 로컬 플레이어만 조작, 상대는 네트워크에서 수신
@@ -2341,8 +2405,8 @@ function btlUpdate(dt){
     if(btl.p2.hp<=0){btl.state='ended';btl.winner='P1';return;}
   }
 
-  // 발판 생성 (시드 기반, 테스트 모드에선 스킵)
-  if(!btl.testMode){
+  // 발판 생성 (시드 기반, 테스트 모드/우주선 스폰 후엔 스킵)
+  if(!btl.testMode&&!btl.shipSpawned){
     let topWY=Math.min(...btl.platforms.map(p=>p.worldY));
     while(topWY>btl.camY-H*1.5){
       btl.platIdx++;
@@ -2351,8 +2415,8 @@ function btlUpdate(dt){
       const pw=70+r2*80;
       btl.platforms.push({x:r3*(W-pw),worldY:topWY,w:pw,h:14,type:'rock'});
     }
-    btl.platforms=btl.platforms.filter(p=>p.worldY-btl.camY<H+200);
   }
+  if(!btl.testMode){btl.platforms=btl.platforms.filter(p=>p.isShipPad||p.worldY-btl.camY<H+200);}
   for(const pt of btl.particles){pt.x+=pt.vx*dt;pt.y+=pt.vy*dt;pt.vy+=0.1*dt;pt.life-=pt.decay*dt;}
   btl.particles=btl.particles.filter(pt=>pt.life>0);
   btlUpdateProjectiles(dt);
@@ -2389,6 +2453,8 @@ function btlCheckHitOnline(atk,tgt){
 }
 
 function btlUpdatePlayer(p,dt,kL,kR,kJ){
+  // 우주선 탑승 중이면 업데이트 스킵
+  if(btl.ship&&btl.ship.boarded===p)return;
   const hasCrouch=p.crouchTime>0;
   const isCockroach=p.charId==='cockroach';
   const isProtein=p.charId==='protein_stick';
@@ -2630,6 +2696,7 @@ function btlExplode(pr){
 }
 
 function btlCheckFall(p){
+  if(btl.ship&&btl.ship.boarded===p)return;
   if(btl.testMode){
     // 테스트: 바닥 아래로 떨어지면 리스폰만
     if(p.worldY>50){btlRespawn(p);return;}
@@ -2689,8 +2756,61 @@ function btlRender(){
       ctx.restore();
     }
   }
+  // 우주선 렌더
+  if(btl.ship){
+    const s=btl.ship;
+    const sx=s.x,sy=s.worldY-btl.camY;
+    if(sy>-200&&sy<H+200){
+      // 발사대 불빛
+      ctx.fillStyle='rgba(255,230,100,0.3)';ctx.fillRect(sx-50,s.padY-btl.camY-5,100,5);
+      // 로켓 본체
+      ctx.fillStyle='#ccc';ctx.fillRect(sx-25,sy+20,50,70);
+      // 로켓 머리 (삼각형)
+      ctx.fillStyle='#e0e0e0';ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(sx-25,sy+25);ctx.lineTo(sx+25,sy+25);ctx.closePath();ctx.fill();
+      // 날개
+      ctx.fillStyle='#ff4444';
+      ctx.beginPath();ctx.moveTo(sx-25,sy+70);ctx.lineTo(sx-40,sy+95);ctx.lineTo(sx-25,sy+90);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.moveTo(sx+25,sy+70);ctx.lineTo(sx+40,sy+95);ctx.lineTo(sx+25,sy+90);ctx.closePath();ctx.fill();
+      // 창문
+      ctx.fillStyle='#113';ctx.beginPath();ctx.arc(sx,sy+40,14,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#225';ctx.beginPath();ctx.arc(sx,sy+40,12,0,Math.PI*2);ctx.fill();
+      // 탑승자 캐릭터 (창문 안)
+      if(s.boarded){
+        ctx.save();ctx.beginPath();ctx.arc(sx,sy+40,11,0,Math.PI*2);ctx.clip();
+        const sg2=game,sc2=selectedChar,ss2=selectedSkin;
+        game={p:{crouching:false,crouchTimer:0,flying:false,spinAngle:0,onGround:true},char:s.boarded.charDef};
+        selectedChar=s.boarded.charId;selectedSkin=s.boarded.skin||'default';
+        s.boarded.charDef.draw(ctx,sx-11,sy+24,1,0,1000,true,0);
+        game=sg2;selectedChar=sc2;selectedSkin=ss2;
+        ctx.restore();
+        // 카운트다운 표시
+        if(!s.launching){
+          const sec=Math.ceil((300-s.boardTimer)/60);
+          ctx.fillStyle='#ffe066';ctx.font='bold 16px "Press Start 2P",monospace';ctx.textAlign='center';
+          ctx.fillText(sec>0?sec+'':'GO!',sx,sy-10);ctx.textAlign='left';
+        }
+      }else{
+        // 빈 창문 하이라이트
+        ctx.fillStyle='rgba(100,200,255,0.2)';ctx.beginPath();ctx.arc(sx-3,sy+37,5,0,Math.PI*2);ctx.fill();
+      }
+      // 발사 중 화염
+      if(s.launching){
+        for(let i=0;i<3;i++){
+          const fx=sx-12+Math.random()*24,fy=sy+90+Math.random()*15;
+          ctx.fillStyle=Math.random()>0.5?'#ff6633':'#ffe066';
+          ctx.fillRect(fx,fy,6+Math.random()*6,8+Math.random()*10);
+        }
+      }
+    }
+  }
   btlDrawPlayer(btl.p1);btlDrawPlayer(btl.p2);
   btlDrawHP();
+  // 높이 표시
+  if(!btl.testMode){
+    ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='10px "Press Start 2P",monospace';
+    ctx.fillText(Math.floor(btl.height).toLocaleString()+'m',14,46);
+    if(btl.height>9000){ctx.fillStyle='#ffe066';ctx.fillText('🚀 '+Math.floor(10000-btl.height)+'m',14,62);}
+  }
   if(btl.state==='countdown'){
     const sec=Math.ceil(btl.countdown/60);
     ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(0,0,W,H);
@@ -2716,6 +2836,8 @@ function btlRender(){
 }
 
 function btlDrawPlayer(p){
+  // 우주선 탑승 중이면 일반 렌더 스킵
+  if(btl.ship&&btl.ship.boarded===p)return;
   const sy=Math.round(p.worldY-btl.camY),sx=Math.round(p.x);
   if(sy>H+50||sy<-60)return;
   // mock game.p for character draw functions
