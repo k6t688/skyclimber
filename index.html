@@ -96,7 +96,9 @@ function screenToGame(sx,sy){return{x:(sx-canvasOffX)/canvasScale,y:(sy-canvasOf
 //  세이브 데이터
 // ══════════════════════════════════════════════════════
 // 버전 리셋
-if(localStorage.getItem('sc_ver')!=='v4'){localStorage.removeItem('sc_chars');localStorage.removeItem('sc_stages');localStorage.removeItem('sc_skins');localStorage.setItem('sc_ver','v4');}
+if(localStorage.getItem('sc_ver')!=='v5'){localStorage.removeItem('sc_chars');localStorage.removeItem('sc_stages');localStorage.removeItem('sc_skins');localStorage.setItem('sc_ver','v5');}
+// 테스트용: 캐릭터 전체 해금
+localStorage.setItem('sc_chars',JSON.stringify(["human","mochi","cockroach","ice","rabbit","protein_stick"]));
 const SAVE={
   get stagesCleared(){ try{return JSON.parse(localStorage.getItem('sc_stages')||'[]');}catch{return[];} },
   set stagesCleared(v){ localStorage.setItem('sc_stages',JSON.stringify(v)); },
@@ -396,8 +398,8 @@ function showMainMenu(){
     <h1>SKY CLIMBER</h1>
     <p>🚀 발판을 밟고 끝까지 올라가라!</p>
     <p style="color:#555">━━━━━━━━━━━━━━━━━━━</p>
-    <button class="btn" onclick="showStageSelect()">▶ 게임 시작</button>
-    <button class="btn" onclick="showBattleMenu()" style="background:#ff6b6b;border-color:#c04040">🆚 배틀 모드</button>
+    <button class="btn" onclick="showStageSelect()">🎮 싱글 모드</button>
+    <button class="btn" onclick="showBattleMenu()" style="background:#ff6b6b;border-color:#c04040">🆚 멀티플레이</button>
     <button class="btn-sm" onclick="showMainMenu()" style="margin-top:10px;color:#666">조작법: ← → 이동 | ↑/Space 점프 | ESC 메뉴</button>
   `;
 }
@@ -2141,6 +2143,7 @@ function lerp(a,b,t){
 // ══════════════════════════════════════════════════════
 let btl=null,btlRunning=false,btlLoopId=null,btlLastTime=0;
 let btlP1Char='human',btlP2Char='mochi',btl_testMode=false;
+let btlP1Skin='default',btlP2Skin='default';
 
 function showBattleMenu(){
   stopLoop();btlStopLoop();btl=null;
@@ -2148,7 +2151,7 @@ function showBattleMenu(){
   document.getElementById('ui').style.display='none';
   eCanvas.style.display='none';
   ov.innerHTML=`
-    <h1 style="font-size:22px">🆚 배틀 모드</h1>
+    <h1 style="font-size:22px">🆚 멀티플레이</h1>
     <p style="color:#aaa;margin-bottom:8px">1대1 대전! 화면 밖으로 떨어지면 HP-1</p>
     <p style="color:#666;font-size:11px;margin-bottom:16px">HP 0 = 패배 | 상대를 밀어떨어뜨려라!</p>
     <button class="btn" onclick="showBattleCharSelect()">🎮 로컬 2P 대전</button>
@@ -2169,12 +2172,26 @@ function showBattleCharSelect(testMode){
     {id:'rabbit',emoji:'🐰',name:'토끼'},
     {id:'protein_stick',emoji:'🥢',name:'단백질 스틱'},
   ];
-  const avail=allChars;
-  const makeCards=(sel,prefix)=>avail.map(c=>{
+  const makeSkinRow=(charId,skinVar)=>{
+    if(!SKINS[charId])return '';
+    const skins=SKINS[charId].filter(sk=>sk.id==='default'||SAVE.hasSkin(sk.id));
+    if(skins.length<=1)return '';
+    const curSkin=skinVar==='btlP1Skin'?btlP1Skin:btlP2Skin;
+    return '<div style="display:flex;gap:3px;justify-content:center;margin-top:2px">'+skins.map(sk=>
+      '<div style="cursor:pointer;padding:1px 4px;font-size:9px;border:1px solid '+(curSkin===sk.id?'#ffe066':'#555')+';border-radius:3px" onclick="event.stopPropagation();'+skinVar+'=\''+sk.id+'\';showBattleCharSelect('+btl_testMode+')">'+sk.emoji+'</div>'
+    ).join('')+'</div>';
+  };
+  const makeCards=(sel,prefix,skinVar)=>allChars.map(c=>{
+    const unlocked=SAVE.hasChar(c.id);
+    if(!unlocked)return `<div class="char-card locked" style="width:80px;height:100px;padding:4px">
+      <div style="font-size:22px">🔒</div>
+      <div style="font-size:9px;color:#555;margin-top:4px">${c.name}</div>
+    </div>`;
     const cls=sel===c.id?'selected':'unlocked';
-    return `<div class="char-card ${cls}" style="width:80px;height:100px;padding:4px" onclick="${prefix}='${c.id}';showBattleCharSelect()">
+    return `<div class="char-card ${cls}" style="width:80px;height:${SKINS[c.id]?'115':'100'}px;padding:4px" onclick="${prefix}='${c.id}';${skinVar}='default';showBattleCharSelect(${btl_testMode})">
       <div style="font-size:28px">${c.emoji}</div>
       <div style="font-size:9px;color:${sel===c.id?'#ffe066':'#aaa'};margin-top:4px">${c.name}</div>
+      ${sel===c.id?makeSkinRow(c.id,skinVar):''}
     </div>`;
   }).join('');
   ov.innerHTML=`
@@ -2182,12 +2199,12 @@ function showBattleCharSelect(testMode){
     <div style="display:flex;gap:30px;align-items:flex-start;flex-wrap:wrap;justify-content:center">
       <div style="text-align:center">
         <p style="color:#7ef;font-size:12px;margin-bottom:8px">P1 ←→↑ 좌클릭</p>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:280px">${makeCards(btlP1Char,'btlP1Char')}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:280px">${makeCards(btlP1Char,'btlP1Char','btlP1Skin')}</div>
       </div>
       <div style="font-size:28px;color:#ffe066;align-self:center">VS</div>
       <div style="text-align:center">
         <p style="color:#f88;font-size:12px;margin-bottom:8px">P2 A/D/W 우클릭</p>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:280px">${makeCards(btlP2Char,'btlP2Char')}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:280px">${makeCards(btlP2Char,'btlP2Char','btlP2Skin')}</div>
       </div>
     </div>
     <div style="display:flex;gap:12px;margin-top:20px">
@@ -2207,7 +2224,7 @@ const BTL_STATS={
   protein_stick:{hp:3,kb:8,stun:30,cooldown:30,atkType:'comboPunch',comboKbGrow:3,maxComboKb:30,desc:'콤보 펀치 (연타시 넉백↑)'},
 };
 
-function btlMakePlayer(charId,x,facing,label,color){
+function btlMakePlayer(charId,x,facing,label,color,skin){
   const c=CHARS[charId];
   const bs=BTL_STATS[charId]||BTL_STATS.human;
   let hitJumps=1;
@@ -2224,6 +2241,7 @@ function btlMakePlayer(charId,x,facing,label,color){
     stunTimer:0,hitJumps,knocked:false,
     slowTimer:0,comboCount:0,
     grabArm:null,_mouseHeld:false,
+    skin:skin||'default',
     bs,charId,charDef:c,label,color,_jumpHeld:false};
 }
 
@@ -2236,8 +2254,8 @@ function startBattle(testMode){
     camY:0,scrollSpeed:testMode?0:0.8,time:0,online:false,seed:seed,platIdx:0,testMode:!!testMode,
     platforms:[],particles:[],projectiles:[],
     stars:Array.from({length:120},()=>({x:Math.random()*W,y:Math.random()*H,sz:Math.random()<0.3?2:1,tw:Math.random()*Math.PI*2,spd:0.02+Math.random()*0.04})),
-    p1:btlMakePlayer(btlP1Char,W*0.3,1,'P1','#7ef'),
-    p2:btlMakePlayer(btlP2Char,W*0.7,-1,'P2','#f88'),
+    p1:btlMakePlayer(btlP1Char,W*0.3,1,'P1','#7ef',btlP1Skin),
+    p2:btlMakePlayer(btlP2Char,W*0.7,-1,'P2','#f88',btlP2Skin),
     state:'countdown',countdown:180,winner:null,hitStop:0,_endBound:false
   };
   btl.platforms.push({x:0,worldY:0,w:W,h:20,type:'ground'});
@@ -2701,7 +2719,7 @@ function btlDrawPlayer(p){
   // mock game.p for character draw functions
   const sg=game,sc=selectedChar,ss=selectedSkin;
   game={p:{crouching:p.crouching,crouchTimer:p.crouchTimer,flying:p.flying,spinAngle:p.spinAngle,onGround:p.onGround},char:p.charDef};
-  selectedChar=p.charId;selectedSkin='default';
+  selectedChar=p.charId;selectedSkin=p.skin||'default';
   p.charDef.draw(ctx,sx,sy,p.facing,p.frame,1000,p.onGround,p.vy);
   game=sg;selectedChar=sc;selectedSkin=ss;
   // 공격 시각효과 (캐릭터별)
@@ -2916,6 +2934,7 @@ function showOnlineCharSelect(){
     {id:'rabbit',emoji:'🐰',name:'토끼'},{id:'protein_stick',emoji:'🥢',name:'단백질 스틱'},
   ];
   const cards=allChars.map(c=>{
+    if(!SAVE.hasChar(c.id))return `<div class="char-card locked" style="width:80px;height:100px;padding:4px"><div style="font-size:22px">🔒</div><div style="font-size:9px;color:#555;margin-top:4px">${c.name}</div></div>`;
     const cls=netMyChar===c.id?'selected':'unlocked';
     return `<div class="char-card ${cls}" style="width:80px;height:100px;padding:4px" onclick="netMyChar='${c.id}';showOnlineCharSelect()">
       <div style="font-size:28px">${c.emoji}</div>
