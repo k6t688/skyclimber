@@ -3120,7 +3120,8 @@ function startOnlineBattle(){
   const isHost=netPlayerIdx===0;
   btl={
     camY:0,scrollSpeed:0.8,time:0,online:true,localIdx:netPlayerIdx,seed:seed,platIdx:0,netSendT:0,
-    platforms:[],particles:[],
+    testMode:false,height:0,ship:null,shipSpawned:false,
+    platforms:[],particles:[],projectiles:[],
     stars:Array.from({length:120},()=>({x:Math.random()*W,y:Math.random()*H,sz:Math.random()<0.3?2:1,tw:Math.random()*Math.PI*2,spd:0.02+Math.random()*0.04})),
     p1:btlMakePlayer(isHost?myChar:oppChar,W*0.3,1,'P1',isHost?'#7ef':'#f88'),
     p2:btlMakePlayer(isHost?oppChar:myChar,W*0.7,-1,'P2',isHost?'#f88':'#7ef'),
