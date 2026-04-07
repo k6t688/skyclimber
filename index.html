@@ -4115,9 +4115,9 @@ canvas.addEventListener('mousedown',e=>{
 });
 canvas.addEventListener('mousemove',e=>{
   const g=screenToGame(e.clientX,e.clientY);btlMouseX=g.x;btlMouseY=g.y;
-  if(btl&&btl.online&&onlineRole==='guest'&&btl._netMouseHeld){
+  if(btl&&btl.online&&onlineRole==='guest'){
     const p=btl.players[onlinePlayerIdx];
-    if(p){const cx=p.x+p.w/2,cy=p.worldY+p.h/2-btl.camY;btl._netAtkAngle=Math.atan2(g.y-cy,g.x-cx);}
+    if(p&&(btl._netMouseHeld||p.streamTimer>0)){const cx=p.x+p.w/2,cy=p.worldY+p.h/2-btl.camY;btl._netAtkAngle=Math.atan2(g.y-cy,g.x-cx);}
   }
 });
 canvas.addEventListener('mouseup',e=>{
