@@ -98,9 +98,9 @@ function screenToGame(sx,sy){return{x:(sx-canvasOffX)/canvasScale,y:(sy-canvasOf
 // 버전 리셋
 if(localStorage.getItem('sc_ver')!=='v9'){localStorage.removeItem('sc_chars');localStorage.removeItem('sc_stages');localStorage.removeItem('sc_skins');localStorage.setItem('sc_ver','v9');}
 // 테스트용: 전체 해금
-localStorage.setItem('sc_chars',JSON.stringify(["human","mochi","cockroach","ice","rabbit","protein_stick","astronaut","illuminati","skeleton","fish"]));
+localStorage.setItem('sc_chars',JSON.stringify(["human","mochi","cockroach","ice","rabbit","protein_stick","astronaut","illuminati","skeleton","fish","storm"]));
 localStorage.setItem('sc_stages',JSON.stringify([1,2,3]));
-localStorage.setItem('sc_skins',JSON.stringify(["cockroach_crown","rabbit_frozen","rabbit_muscle","protein_shake"]));
+localStorage.setItem('sc_skins',JSON.stringify(["cockroach_crown","rabbit_frozen","rabbit_muscle","protein_shake","fish_tuna","human_thin"]));
 const SAVE={
   get stagesCleared(){ try{return JSON.parse(localStorage.getItem('sc_stages')||'[]');}catch{return[];} },
   set stagesCleared(v){ localStorage.setItem('sc_stages',JSON.stringify(v)); },
@@ -119,6 +119,8 @@ const SKINS={
   cockroach:[{id:'default',name:'기본',emoji:'🪳'},{id:'cockroach_crown',name:'왕관',emoji:'👑'}],
   rabbit:[{id:'default',name:'기본',emoji:'🐰'},{id:'rabbit_frozen',name:'얼어붙은',emoji:'🧊'},{id:'rabbit_muscle',name:'근육질',emoji:'💪'}],
   protein_stick:[{id:'default',name:'기본',emoji:'🥢'},{id:'protein_shake',name:'단백질 쉐이크',emoji:'🥤'}],
+  fish:[{id:'default',name:'기본',emoji:'🐟'},{id:'fish_tuna',name:'냉동참치',emoji:'🐡'}],
+  human:[{id:'default',name:'기본',emoji:'🧑'},{id:'human_thin',name:'삐쩍 마른',emoji:'🦴'}],
 };
 let selectedSkin='default';
 
@@ -143,6 +145,30 @@ const CHARS={
       return['#ff4400','#cc2200'];
     },
     draw(ctx,sx,sy,f,frame,h,onGround,vy){
+      if(selectedSkin==='human_thin'){
+        // 졸라맨 스타일: 삐쩍 마른 탐험가
+        ctx.strokeStyle='#c8a070';ctx.lineWidth=2;ctx.lineCap='round';
+        // 다리
+        const leg=(frame%2===0)?3:-3;
+        ctx.beginPath();ctx.moveTo(sx+11,sy+22);ctx.lineTo(sx+7+leg,sy+32);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(sx+11,sy+22);ctx.lineTo(sx+15-leg,sy+32);ctx.stroke();
+        // 몸통
+        ctx.beginPath();ctx.moveTo(sx+11,sy+10);ctx.lineTo(sx+11,sy+22);ctx.stroke();
+        // 팔 (X자형으로 늘어짐)
+        ctx.beginPath();ctx.moveTo(sx+11,sy+13);ctx.lineTo(sx+4,sy+20);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(sx+11,sy+13);ctx.lineTo(sx+18,sy+20);ctx.stroke();
+        // 머리 (작은 원)
+        ctx.fillStyle='#c8a070';ctx.beginPath();ctx.arc(sx+11,sy+6,5,0,Math.PI*2);ctx.fill();
+        // 눈 (X자 - 힘든 표정)
+        ctx.strokeStyle='#333';ctx.lineWidth=1.5;
+        const ex=f>0?sx+13:sx+7;
+        ctx.beginPath();ctx.moveTo(ex,sy+4);ctx.lineTo(ex+2,sy+6);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(ex+2,sy+4);ctx.lineTo(ex,sy+6);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(ex+5,sy+4);ctx.lineTo(ex+7,sy+6);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(ex+7,sy+4);ctx.lineTo(ex+5,sy+6);ctx.stroke();
+        ctx.lineWidth=1;ctx.lineCap='butt';
+        return;
+      }
       const[bc,hc]=this.bodyColor(h);
       const leg=(frame%2===0)?0:4;
       ctx.fillStyle='#333';
@@ -431,6 +457,7 @@ const CHARS={
     fishBounce:true,
     bodyColor:(h)=>['#4488ff','#2266cc'],
     draw(ctx,sx,sy,f,frame,h,onGround,vy){
+      const isTuna=selectedSkin==='fish_tuna';
       // 탱탱볼 스쿼시/스트레치
       let scaleX=1,scaleY=1;
       if(onGround){scaleX=1.3;scaleY=0.7;} // 착지 찌그러짐
@@ -441,21 +468,27 @@ const CHARS={
       ctx.scale(scaleX,scaleY);
       ctx.translate(-(sx+11),-(sy+14));
       // 몸통 (타원형)
-      ctx.fillStyle='#4488ff';
+      ctx.fillStyle=isTuna?'#b0b8c8':'#4488ff';
       ctx.beginPath();ctx.ellipse(sx+11,sy+14,11,8,0,0,Math.PI*2);ctx.fill();
       // 배 (밝은색)
-      ctx.fillStyle='#88bbff';
+      ctx.fillStyle=isTuna?'#d8e0e8':'#88bbff';
       ctx.beginPath();ctx.ellipse(sx+11,sy+17,8,4,0,0,Math.PI*2);ctx.fill();
       // 꼬리
-      ctx.fillStyle='#2266cc';
+      ctx.fillStyle=isTuna?'#707880':'#2266cc';
       ctx.beginPath();
       ctx.moveTo(sx-2,sy+14);ctx.lineTo(sx-8,sy+6);ctx.lineTo(sx-8,sy+22);ctx.closePath();ctx.fill();
       // 등지느러미
-      ctx.fillStyle='#3377dd';
+      ctx.fillStyle=isTuna?'#9098a8':'#3377dd';
       ctx.beginPath();ctx.moveTo(sx+8,sy+6);ctx.lineTo(sx+14,sy+3);ctx.lineTo(sx+16,sy+8);ctx.closePath();ctx.fill();
       // 눈
       ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(sx+16,sy+12,3,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle='#000';ctx.beginPath();ctx.arc(sx+16+f,sy+12,1.5,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle=isTuna?'#334':'#000';ctx.beginPath();ctx.arc(sx+16+f,sy+12,1.5,0,Math.PI*2);ctx.fill();
+      // 냉동참치 서리 이펙트
+      if(isTuna){
+        ctx.fillStyle='rgba(200,230,255,0.5)';
+        ctx.fillRect(sx+6,sy+8,4,2);ctx.fillRect(sx+14,sy+10,3,2);ctx.fillRect(sx+9,sy+18,5,2);
+        ctx.fillRect(sx+3,sy+13,3,2);ctx.fillRect(sx+17,sy+15,3,2);
+      }
       // 입
       ctx.fillStyle='#2266cc';ctx.fillRect(sx+20,sy+14,3,2);
       ctx.restore();
@@ -465,6 +498,42 @@ const CHARS={
         for(let i=0;i<3;i++){
           ctx.beginPath();ctx.arc(sx+11+Math.sin(frame*0.3+i*2)*8,sy+24+i*5,2,0,Math.PI*2);ctx.fill();
         }
+      }
+    }
+  },
+  storm:{
+    id:'storm', name:'폭풍',
+    desc:'목성의 대폭풍\n바퀴벌레도 날린다\n능력 미정',
+    jumpForce:-14, jumpCount:2, speed:5, friction:0.8,
+    bodyColor:(h)=>['#334466','#223355'],
+    draw(ctx,sx,sy,f,frame,h,onGround,vy){
+      const spin=frame*0.15;
+      // 소용돌이 구름 몸체 (3겹 원)
+      ctx.fillStyle='rgba(60,80,120,0.9)';
+      ctx.beginPath();ctx.ellipse(sx+11,sy+14,12,10,spin,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='rgba(80,100,150,0.85)';
+      ctx.beginPath();ctx.ellipse(sx+11,sy+14,9,7,spin+1,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='rgba(100,130,180,0.8)';
+      ctx.beginPath();ctx.ellipse(sx+11,sy+14,6,4,spin+2,0,Math.PI*2);ctx.fill();
+      // 번개 (노란 지그재그)
+      ctx.fillStyle='#ffe040';
+      const lx=f>0?sx+13:sx+5;
+      ctx.beginPath();ctx.moveTo(lx,sy+2);ctx.lineTo(lx-3,sy+10);ctx.lineTo(lx+1,sy+10);ctx.lineTo(lx-3,sy+20);ctx.lineTo(lx+5,sy+11);ctx.lineTo(lx+1,sy+11);ctx.lineTo(lx+5,sy+2);ctx.closePath();ctx.fill();
+      // 눈 (흰색 + 화난 눈썹)
+      const ex=f>0?sx+14:sx+4;
+      ctx.fillStyle='#fff';ctx.fillRect(ex,sy+8,4,3);
+      ctx.fillStyle='#111';ctx.fillRect(ex+1,sy+9,2,2);
+      ctx.fillStyle='#fff';ctx.fillRect(ex+6,sy+8,4,3);
+      ctx.fillStyle='#111';ctx.fillRect(ex+7,sy+9,2,2);
+      // 화난 눈썹
+      ctx.fillStyle='#334466';
+      if(f>0){ctx.fillRect(ex,sy+7,5,2);ctx.fillRect(ex+6,sy+6,4,2);}
+      else{ctx.fillRect(ex,sy+6,4,2);ctx.fillRect(ex+6,sy+7,5,2);}
+      // 주변 바람 파티클
+      ctx.fillStyle='rgba(150,180,220,0.6)';
+      for(let i=0;i<4;i++){
+        const a=spin+i*Math.PI/2;
+        ctx.beginPath();ctx.arc(sx+11+Math.cos(a)*14,sy+14+Math.sin(a)*11,2,0,Math.PI*2);ctx.fill();
       }
     }
   }
@@ -723,7 +792,7 @@ function startStage(stageId){
   game={
     stage:stageId,
     stageData:sd,
-    height:sd.startH,
+    height:sd.endH-300,
     camY:-(H-60),
     platforms:[],
     cometTimer:60,
@@ -1203,6 +1272,10 @@ function startEnding(){
   else if(s===2&&c==='protein_stick')startProteinStickS2Ending();
   else if(s===3&&c==='human')startHumanS3Ending();
   else if(s===3&&c==='mochi')startMochiS3Ending();
+  else if(s===3&&c==='cockroach')startCockroachS3Ending();
+  else if(s===3&&c==='ice')startIceS3Ending();
+  else if(s===3&&c==='rabbit')startRabbitS3Ending();
+  else if(s===3&&c==='protein_stick')startProteinS3Ending();
   else startDefaultEnding();
 }
 
@@ -1270,6 +1343,10 @@ function endingLoop(ts){
   else if(ending.type==='protein_s2'){updateProteinStickS2Ending(ending);renderProteinStickS2Ending(ending);}
   else if(ending.type==='human_s3'){updateHumanS3Ending(ending);renderHumanS3Ending(ending);}
   else if(ending.type==='mochi_s3'){updateMochiS3Ending(ending);renderMochiS3Ending(ending);}
+  else if(ending.type==='cockroach_s3'){updateCockroachS3Ending(ending);renderCockroachS3Ending(ending);}
+  else if(ending.type==='ice_s3'){updateIceS3Ending(ending);renderIceS3Ending(ending);}
+  else if(ending.type==='rabbit_s3'){updateRabbitS3Ending(ending);renderRabbitS3Ending(ending);}
+  else if(ending.type==='protein_s3'){updateProteinS3Ending(ending);renderProteinS3Ending(ending);}
   if(ending)requestAnimationFrame(endingLoop);
 }
 
@@ -2740,6 +2817,395 @@ function renderMochiS3Ending(e){
   ectx.textAlign='left';
 }
 
+// ─── 바퀴벌레 ST3 엔딩 (폭풍 캐릭터 해금) ────────────
+function startCockroachS3Ending(){
+  eCanvas.style.display='block';document.getElementById('ui').style.display='none';
+  ending={type:'cockroach_s3',t:0,scene:0,char:selectedChar,
+    stars:Array.from({length:80},()=>({x:Math.random()*W,y:Math.random()*H,sz:Math.random()<0.3?2:1,tw:Math.random()*Math.PI*2})),
+    particles:[]};
+  endLastTime=performance.now();requestAnimationFrame(endingLoop);
+}
+function updateCockroachS3Ending(e){
+  e.t+=1;
+  if(e.scene===0&&e.t>360){e.scene=1;e.t=0;}
+  if(e.scene===1&&e.t>360){e.scene=2;e.t=0;}
+  if(e.scene===2&&e.t>360){e.scene=3;e.t=0;}
+  if(e.scene===3&&e.t>400){e.scene=4;e.t=0;SAVE.unlockChar('storm');}
+  if(e.scene===4&&e.t>360){endingDone();}
+  if(e.scene===4&&e.t>100&&!eCanvas._endingBound){eCanvas._endingBound=true;eCanvas.onclick=()=>endingDone();document.onkeydown=(ev)=>{if(ev.code!=='F5'&&ev.code!=='F12')endingDone();};}
+}
+function renderCockroachS3Ending(e){
+  ectx.textAlign='center';
+  for(const s of e.stars){ectx.globalAlpha=0.4+0.3*Math.sin(s.tw+=0.03);ectx.fillStyle='#fff';ectx.fillRect(s.x,s.y,s.sz,s.sz);}ectx.globalAlpha=1;
+  if(e.scene===0){
+    // 목성 대적점 소용돌이, 바퀴벌레가 빙글빙글 빨려들어감
+    ectx.fillStyle='#1a0a00';ectx.fillRect(0,0,W,H);
+    for(let i=3;i>=1;i--){
+      ectx.fillStyle=`rgba(${140+i*20},${40+i*10},0,0.7)`;
+      ectx.beginPath();ectx.ellipse(W/2,H/2,100*i/3*1.3,70*i/3,e.t*0.02,0,Math.PI*2);ectx.fill();
+    }
+    // 바퀴벌레 빙글빙글
+    ectx.save();ectx.translate(W/2,H/2);
+    const r=120-e.t*0.3,ang=-e.t*0.05;
+    ectx.translate(Math.cos(ang)*r,Math.sin(ang)*r);
+    ectx.rotate(ang);
+    CHARS.cockroach.draw(ectx,-11,-16,1,Math.floor(e.t/8)%2,35000,false,-2);
+    ectx.restore();
+    ectx.font='13px "Press Start 2P",monospace';ectx.fillStyle='#ff6633';
+    ectx.fillText('목성 대적점에 빨려들어간다!',W/2,40);
+    ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#aaa';
+    ectx.fillText('폭풍은 모든 것을 삼킨다...',W/2,65);
+  }else if(e.scene===1){
+    // 폭풍 속 - 배경 흔들림, 바퀴벌레는 멀쩡
+    const shk=Math.sin(e.t*0.4)*(8+e.t*0.02);
+    ectx.fillStyle='#2a0800';ectx.fillRect(0,0,W,H);
+    for(let i=0;i<20;i++){
+      ectx.fillStyle=`rgba(180,80,0,${0.1+Math.random()*0.15})`;
+      ectx.fillRect(Math.random()*W+shk,Math.random()*H,40+Math.random()*80,6+Math.random()*10);
+    }
+    CHARS.cockroach.draw(ectx,W/2-11,H/2-16,1,Math.floor(e.t/8)%2,35000,false,0);
+    ectx.font='13px "Press Start 2P",monospace';ectx.fillStyle='#ffaa44';
+    ectx.fillText('바퀴벌레: 이 정도는...',W/2,40);
+    ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#888';
+    ectx.fillText('(폭풍 속에서도 끄떡없다)',W/2,65);
+  }else if(e.scene===2){
+    // 폭풍의 눈 — 조용하고 폭풍 캐릭터 등장
+    ectx.fillStyle='#111820';ectx.fillRect(0,0,W,H);
+    ectx.fillStyle='rgba(60,80,120,0.3)';ectx.beginPath();ectx.arc(W/2,H/2,200,0,Math.PI*2);ectx.fill();
+    // 폭풍 캐릭터
+    const stormAlpha=Math.min(1,e.t/60);
+    ectx.globalAlpha=stormAlpha;
+    CHARS.storm.draw(ectx,W/2+60,H/2-16,-1,Math.floor(e.t/8)%2,35000,true,0);
+    ectx.globalAlpha=1;
+    CHARS.cockroach.draw(ectx,W/2-80,H/2-16,1,0,35000,true,0);
+    ectx.font='13px "Press Start 2P",monospace';ectx.fillStyle='#88aaff';
+    ectx.fillText('폭풍의 눈...',W/2,40);
+    if(e.t>120){ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#aac0ff';ectx.fillText('폭풍: 여기까지 온 건 네가 처음이야.',W/2,65);}
+    if(e.t>200){ectx.fillStyle='#aac0ff';ectx.fillText('폭풍: ...근데 이제 나가.',W/2,85);}
+  }else if(e.scene===3){
+    // 폭풍이 바퀴벌레를 날려버림
+    const flyX=W/2-80+e.t*2.5,flyY=H/2-16-e.t*0.8;
+    ectx.fillStyle='#1a0a00';ectx.fillRect(0,0,W,H);
+    CHARS.storm.draw(ectx,W/2+60,H/2-16,-1,Math.floor(e.t/8)%2,35000,true,0);
+    if(flyX<W+50){
+      ectx.save();ectx.translate(flyX+11,flyY+16);ectx.rotate(e.t*0.1);
+      CHARS.cockroach.draw(ectx,-11,-16,1,0,35000,false,-5);
+      ectx.restore();
+    }
+    ectx.font='13px "Press Start 2P",monospace';ectx.fillStyle='#ff4444';
+    ectx.fillText('폭풍: 이야아아아!!',W/2,40);
+    if(e.t>150){ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#888';ectx.fillText('바퀴벌레: 꺄아아아악!!!!',W/2,65);}
+  }else if(e.scene===4){
+    ectx.fillStyle='#111820';ectx.fillRect(0,0,W,H);
+    ectx.font='18px "Press Start 2P",monospace';ectx.fillStyle='#88aaff';
+    ectx.fillText('🌪️ 폭풍 캐릭터 해금!',W/2,H/2-10);
+    ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#aaa';
+    ectx.fillText('목성 대적점의 지배자',W/2,H/2+25);
+  }
+  ectx.textAlign='left';
+}
+
+// ─── 얼음 ST3 엔딩 (냉동참치 스킨 해금) ──────────────
+function startIceS3Ending(){
+  eCanvas.style.display='block';document.getElementById('ui').style.display='none';
+  ending={type:'ice_s3',t:0,scene:0,char:selectedChar,
+    bubbles:Array.from({length:15},()=>({x:Math.random()*W,y:H*0.4+Math.random()*H*0.5,r:2+Math.random()*4,spd:0.3+Math.random()*0.5}))};
+  endLastTime=performance.now();requestAnimationFrame(endingLoop);
+}
+function updateIceS3Ending(e){
+  e.t+=1;
+  for(const b of e.bubbles){b.y-=b.spd;if(b.y<H*0.3)b.y=H;}
+  if(e.scene===0&&e.t>360){e.scene=1;e.t=0;}
+  if(e.scene===1&&e.t>360){e.scene=2;e.t=0;}
+  if(e.scene===2&&e.t>300){e.scene=3;e.t=0;}
+  if(e.scene===3&&e.t>400){e.scene=4;e.t=0;SAVE.unlockSkin('fish_tuna');}
+  if(e.scene===4&&e.t>360){endingDone();}
+  if(e.scene===4&&e.t>100&&!eCanvas._endingBound){eCanvas._endingBound=true;eCanvas.onclick=()=>endingDone();document.onkeydown=(ev)=>{if(ev.code!=='F5'&&ev.code!=='F12')endingDone();};}
+}
+function renderIceS3Ending(e){
+  ectx.textAlign='center';
+  if(e.scene===0){
+    // 유로파 착지 - 하얀 얼음 지형
+    ectx.fillStyle='#0a1a2a';ectx.fillRect(0,0,W,H);
+    // 별
+    for(let i=0;i<60;i++){ectx.fillStyle='rgba(255,255,255,0.6)';ectx.fillRect((i*137)%W,(i*97)%H*0.5,1,1);}
+    // 얼음 지형
+    ectx.fillStyle='#c8e8ff';ectx.fillRect(0,H*0.7,W,H*0.3);
+    ectx.fillStyle='#a0d0f0';
+    for(let i=0;i<8;i++){ectx.fillRect(i*120,H*0.7-20+Math.sin(i)*10,80,25);}
+    ectx.fillStyle='#e8f8ff';ectx.fillRect(0,H*0.7,W,8);
+    // 유로파 표면 크랙
+    ectx.strokeStyle='#88b8d8';ectx.lineWidth=2;
+    ectx.beginPath();ectx.moveTo(100,H*0.7);ectx.lineTo(200,H*0.75);ectx.lineTo(350,H*0.72);ectx.stroke();
+    ectx.beginPath();ectx.moveTo(500,H*0.7);ectx.lineTo(600,H*0.78);ectx.lineTo(750,H*0.71);ectx.stroke();
+    // 얼음 캐릭터 착지
+    const landY=Math.min(H*0.7-32,H*0.2+e.t*1.8);
+    CHARS.ice.draw(ectx,W/2-11,landY,1,Math.floor(e.t/8)%2,35000,landY>=H*0.7-32,e.t<120?3:0);
+    ectx.font='13px "Press Start 2P",monospace';ectx.fillStyle='#aaddff';
+    ectx.fillText('유로파... 목성의 위성',W/2,40);
+    ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#88aacc';
+    ectx.fillText('거대한 얼음 바다가 펼쳐진다',W/2,65);
+  }else if(e.scene===1){
+    // 얼음이 깨지며 물속으로 빠짐
+    ectx.fillStyle='#0a2a5a';ectx.fillRect(0,0,W,H);
+    // 수면
+    ectx.fillStyle='#1a4a8a';ectx.fillRect(0,H*0.3,W,H);
+    ectx.fillStyle='#2a6aaa';ectx.fillRect(0,H*0.3,W,20);
+    // 물방울/파동
+    for(const b of e.bubbles){ectx.fillStyle='rgba(100,180,255,0.4)';ectx.beginPath();ectx.arc(b.x,b.y,b.r,0,Math.PI*2);ectx.fill();}
+    // 얼음 균열 조각
+    if(e.t<60){
+      ectx.fillStyle='#c8e8ff';
+      ectx.fillRect(W/2-40,H*0.28,35,12);ectx.fillRect(W/2+5,H*0.27,30,10);
+    }
+    // 빠지는 얼음 캐릭터
+    const sinkY=H*0.25+e.t*0.8;
+    CHARS.ice.draw(ectx,W/2-11,sinkY,1,Math.floor(e.t/8)%2,35000,false,3);
+    ectx.font='13px "Press Start 2P",monospace';ectx.fillStyle='#88ccff';
+    ectx.fillText('얼음이 깨진다!',W/2,40);
+    ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#aaa';
+    ectx.fillText('차가운 바다 속으로...',W/2,65);
+  }else if(e.scene===2){
+    // 물속 - 물고기가 접근
+    ectx.fillStyle='#041a3a';ectx.fillRect(0,0,W,H);
+    for(const b of e.bubbles){ectx.fillStyle='rgba(80,160,255,0.3)';ectx.beginPath();ectx.arc(b.x,b.y,b.r,0,Math.PI*2);ectx.fill();}
+    // 얼음 캐릭터 (물속에서 당황)
+    CHARS.ice.draw(ectx,W/2-11,H/2-16,1,Math.floor(e.t/8)%2,35000,false,0);
+    // 물고기 접근
+    const fishX=W-e.t*1.5;
+    if(fishX<W){CHARS.fish.draw(ectx,Math.max(fishX,W/2+30),H/2-8,-1,Math.floor(e.t/6)%2,35000,false,0);}
+    ectx.font='13px "Press Start 2P",monospace';ectx.fillStyle='#44aaff';
+    ectx.fillText('뭔가 다가온다...',W/2,40);
+    if(e.t>150){ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#aaa';ectx.fillText('배고픈 물고기인 것 같다.',W/2,65);}
+  }else if(e.scene===3){
+    // 물고기가 얼음 캐릭터를 깨물었다가 얼어붙음
+    ectx.fillStyle='#041a3a';ectx.fillRect(0,0,W,H);
+    for(const b of e.bubbles){ectx.fillStyle='rgba(80,160,255,0.2)';ectx.beginPath();ectx.arc(b.x,b.y,b.r,0,Math.PI*2);ectx.fill();}
+    CHARS.ice.draw(ectx,W/2-11,H/2-16,1,0,35000,true,0);
+    // 얼어붙은 물고기 (회색으로)
+    const freezeProg=Math.min(1,e.t/120);
+    ectx.globalAlpha=1;
+    // 냉동참치 스킨으로 물고기 렌더
+    const prevSkin=selectedSkin;selectedSkin='fish_tuna';
+    CHARS.fish.draw(ectx,W/2+20,H/2-8,-1,0,35000,true,0);
+    selectedSkin=prevSkin;
+    // 얼음 이펙트
+    ectx.fillStyle=`rgba(180,230,255,${freezeProg*0.5})`;
+    ectx.fillRect(W/2+15,H/2-15,50,40);
+    ectx.font='13px "Press Start 2P",monospace';ectx.fillStyle='#88ccff';
+    ectx.fillText('물고기: 냠— 으?!',W/2,40);
+    if(e.t>120){ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#aaddff';ectx.fillText('물고기가 통째로 얼어붙었다!',W/2,65);}
+  }else if(e.scene===4){
+    ectx.fillStyle='#041a3a';ectx.fillRect(0,0,W,H);
+    ectx.font='18px "Press Start 2P",monospace';ectx.fillStyle='#aaddff';
+    ectx.fillText('🐡 냉동참치 스킨 해금!',W/2,H/2-10);
+    ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#aaa';
+    ectx.fillText('유로파 바다의 냉동 물고기',W/2,H/2+25);
+  }
+  ectx.textAlign='left';
+}
+
+// ─── 토끼 ST3 엔딩 (해금 없음) ────────────────────────
+function startRabbitS3Ending(){
+  eCanvas.style.display='block';document.getElementById('ui').style.display='none';
+  ending={type:'rabbit_s3',t:0,scene:0,char:selectedChar,
+    gasParts:Array.from({length:30},()=>({x:Math.random()*W,y:Math.random()*H,r:10+Math.random()*30,a:Math.random()*0.15+0.05,dx:(Math.random()-0.5)*0.3,dy:(Math.random()-0.5)*0.3}))};
+  endLastTime=performance.now();requestAnimationFrame(endingLoop);
+}
+function updateRabbitS3Ending(e){
+  e.t+=1;
+  for(const g of e.gasParts){g.x+=g.dx;g.y+=g.dy;if(g.x<-50)g.x=W+50;if(g.x>W+50)g.x=-50;if(g.y<-50)g.y=H+50;if(g.y>H+50)g.y=-50;}
+  if(e.scene===0&&e.t>360){e.scene=1;e.t=0;}
+  if(e.scene===1&&e.t>360){e.scene=2;e.t=0;}
+  if(e.scene===2&&e.t>300){e.scene=3;e.t=0;}
+  if(e.scene===3&&e.t>360){e.scene=4;e.t=0;}
+  if(e.scene===4&&e.t>400){endingDone();}
+  if(e.scene===4&&e.t>100&&!eCanvas._endingBound){eCanvas._endingBound=true;eCanvas.onclick=()=>endingDone();document.onkeydown=(ev)=>{if(ev.code!=='F5'&&ev.code!=='F12')endingDone();};}
+}
+function renderRabbitS3Ending(e){
+  ectx.textAlign='center';
+  if(e.scene===0){
+    // 목성 도착
+    ectx.fillStyle='#1a0800';ectx.fillRect(0,0,W,H);
+    // 목성 구체
+    ectx.fillStyle='#c87020';ectx.beginPath();ectx.arc(W/2,H/2,160,0,Math.PI*2);ectx.fill();
+    for(let i=0;i<5;i++){
+      ectx.fillStyle=`rgba(${180+i*10},${90+i*5},${20+i*5},0.5)`;
+      ectx.beginPath();ectx.ellipse(W/2,H/2-60+i*30,160,12,0,0,Math.PI*2);ectx.fill();
+    }
+    CHARS.rabbit.draw(ectx,W/2-11,H/2-80,1,Math.floor(e.t/8)%2,35000,false,0);
+    ectx.font='13px "Press Start 2P",monospace';ectx.fillStyle='#ffaa44';
+    ectx.fillText('목성에 도착했다!',W/2,40);
+    ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#aaa';
+    ectx.fillText('가스 행성... 발판이 없는 곳.',W/2,65);
+  }else if(e.scene===1){
+    // 가스가 자욱해짐
+    ectx.fillStyle='#1a0800';ectx.fillRect(0,0,W,H);
+    const fogAlpha=Math.min(0.9,e.t/200);
+    for(const g of e.gasParts){
+      ectx.globalAlpha=g.a*fogAlpha;
+      ectx.fillStyle='#c87020';
+      ectx.beginPath();ectx.arc(g.x,g.y,g.r,0,Math.PI*2);ectx.fill();
+    }
+    ectx.globalAlpha=Math.max(0,1-fogAlpha*1.2);
+    CHARS.rabbit.draw(ectx,W/2-11,H/2-16,1,Math.floor(e.t/8)%2,35000,false,0);
+    ectx.globalAlpha=1;
+    ectx.font='13px "Press Start 2P",monospace';ectx.fillStyle='#ffaa44';
+    ectx.fillText('가스가 자욱하다...',W/2,40);
+    ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#aaa';
+    if(e.t>180)ectx.fillText('아무것도 보이지 않는다.',W/2,65);
+  }else if(e.scene===2){
+    // 기절
+    ectx.fillStyle='#2a0800';ectx.fillRect(0,0,W,H);
+    for(const g of e.gasParts){ectx.globalAlpha=g.a*0.7;ectx.fillStyle='#c87020';ectx.beginPath();ectx.arc(g.x,g.y,g.r,0,Math.PI*2);ectx.fill();}ectx.globalAlpha=1;
+    // 쓰러진 토끼 (90도 회전)
+    ectx.save();ectx.translate(W/2,H/2+10);ectx.rotate(Math.PI/2);
+    CHARS.rabbit.draw(ectx,-11,-16,1,0,35000,false,0);
+    ectx.restore();
+    // 기절 별
+    for(let i=0;i<3;i++){const a=e.t*0.08+i*Math.PI*2/3;ectx.fillStyle='#ffff88';ectx.font='16px monospace';ectx.fillText('★',W/2+Math.cos(a)*30,H/2-40+Math.sin(a)*10);}
+    ectx.font='13px "Press Start 2P",monospace';ectx.fillStyle='#ffaa44';
+    ectx.fillText('토끼: 으... 이상한 냄새...',W/2,40);
+    if(e.t>150){ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#aaa';ectx.fillText('기절해버렸다!',W/2,65);}
+  }else if(e.scene===3){
+    // 오두막에서 깨어남
+    ectx.fillStyle='#1a0f00';ectx.fillRect(0,0,W,H);
+    // 오두막 내부
+    ectx.fillStyle='#5a3010';ectx.fillRect(50,H*0.3,W-100,H*0.6);
+    ectx.fillStyle='#3a1a00';ectx.fillRect(50,H*0.3,W-100,20);ectx.fillRect(50,H*0.9,W-100,20);
+    // 창문
+    ectx.fillStyle='#112244';ectx.fillRect(W-200,H*0.4,100,80);
+    ectx.fillStyle='#334466';ectx.fillRect(W-195,H*0.42,90,70);
+    // 창문 빛
+    ectx.fillStyle='rgba(255,200,100,0.15)';ectx.fillRect(W-195,H*0.42,90,70);
+    // 침대(?)
+    ectx.fillStyle='#6a4020';ectx.fillRect(100,H*0.65,200,60);
+    ectx.fillStyle='#cc8844';ectx.fillRect(100,H*0.63,200,12);
+    // 토끼 깨어남
+    CHARS.rabbit.draw(ectx,W/2-60,H*0.6,1,0,35000,false,0);
+    ectx.font='13px "Press Start 2P",monospace';ectx.fillStyle='#ffcc88';
+    ectx.fillText('여기가 어디지...?',W/2,40);
+    ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#cc9966';
+    if(e.t>120)ectx.fillText('오두막... 누군가 날 데려온 건가?',W/2,65);
+  }else if(e.scene===4){
+    // 암시 엔딩
+    ectx.fillStyle='#1a0f00';ectx.fillRect(0,0,W,H);
+    // 오두막 내부
+    ectx.fillStyle='#5a3010';ectx.fillRect(50,H*0.3,W-100,H*0.6);
+    ectx.fillStyle='#3a1a00';ectx.fillRect(50,H*0.3,W-100,20);
+    // 창문
+    ectx.fillStyle='#112244';ectx.fillRect(W-200,H*0.4,100,80);
+    ectx.fillStyle='#334466';ectx.fillRect(W-195,H*0.42,90,70);
+    // 창문 너머 실루엣 (흔들리는 그림자)
+    const silhouetteX=W-195+20+Math.sin(e.t*0.05)*5;
+    ectx.fillStyle='rgba(0,0,0,0.8)';
+    ectx.fillRect(silhouetteX,H*0.43,20,60);
+    ectx.beginPath();ectx.arc(silhouetteX+10,H*0.44,12,0,Math.PI*2);ectx.fill();
+    CHARS.rabbit.draw(ectx,W/2-60,H*0.6,1,0,35000,false,0);
+    ectx.font='11px "Press Start 2P",monospace';ectx.fillStyle='#ffcc88';
+    ectx.fillText('누가 구해준 거야...?',W/2,45);
+    if(e.t>120){ectx.fillStyle='#cc9966';ectx.font='10px "Press Start 2P",monospace';ectx.fillText('저 실루엣은... 뭔가 낯설지 않아.',W/2,70);}
+    if(e.t>240){ectx.fillStyle='#888';ectx.fillText('(계속)',W/2,H-60);}
+  }
+  ectx.textAlign='left';
+}
+
+// ─── 단백질 스틱 ST3 엔딩 (삐쩍 마른 탐험가 스킨 해금) ──
+function startProteinS3Ending(){
+  eCanvas.style.display='block';document.getElementById('ui').style.display='none';
+  ending={type:'protein_s3',t:0,scene:0,char:selectedChar};
+  endLastTime=performance.now();requestAnimationFrame(endingLoop);
+}
+function updateProteinS3Ending(e){
+  e.t+=1;
+  if(e.scene===0&&e.t>360){e.scene=1;e.t=0;}
+  if(e.scene===1&&e.t>360){e.scene=2;e.t=0;}
+  if(e.scene===2&&e.t>300){e.scene=3;e.t=0;}
+  if(e.scene===3&&e.t>400){e.scene=4;e.t=0;SAVE.unlockSkin('human_thin');}
+  if(e.scene===4&&e.t>360){endingDone();}
+  if(e.scene===4&&e.t>100&&!eCanvas._endingBound){eCanvas._endingBound=true;eCanvas.onclick=()=>endingDone();document.onkeydown=(ev)=>{if(ev.code!=='F5'&&ev.code!=='F12')endingDone();};}
+}
+function renderProteinS3Ending(e){
+  ectx.textAlign='center';
+  if(e.scene===0){
+    // 폭풍 속 오래된 로켓 발견
+    ectx.fillStyle='#2a0a00';ectx.fillRect(0,0,W,H);
+    const shk=Math.sin(e.t*0.35)*5;
+    // 폭풍 배경
+    for(let i=0;i<15;i++){
+      ectx.fillStyle=`rgba(180,80,0,${0.05+Math.random()*0.1})`;
+      ectx.fillRect(Math.random()*W+shk,Math.random()*H,60+Math.random()*100,5+Math.random()*8);
+    }
+    // 오래된 로켓 잔해
+    const rx=W/2+20+shk;
+    ectx.fillStyle='#666';ectx.fillRect(rx-15,H/2-30,30,60);
+    ectx.fillStyle='#555';ectx.fillRect(rx-20,H/2,40,20);
+    ectx.fillStyle='#444';ectx.fillRect(rx-8,H/2-50,16,25);
+    ectx.fillStyle='#888';ectx.fillRect(rx-3,H/2-55,6,8);
+    ectx.strokeStyle='#777';ectx.lineWidth=1;ectx.strokeRect(rx-10,H/2-20,8,10);
+    CHARS.protein_stick.draw(ectx,W/2-80+shk,H/2-16,1,Math.floor(e.t/8)%2,35000,false,0);
+    ectx.font='13px "Press Start 2P",monospace';ectx.fillStyle='#ffaa44';
+    ectx.fillText('폭풍 속에 뭔가 있다...',W/2,40);
+    ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#aaa';
+    if(e.t>120)ectx.fillText('오래된 로켓 잔해다!',W/2,65);
+  }else if(e.scene===1){
+    // 로켓 내부 - 삐쩍 마른 사람
+    ectx.fillStyle='#111';ectx.fillRect(0,0,W,H);
+    ectx.fillStyle='#222';ectx.fillRect(30,30,W-60,H-60);
+    ectx.strokeStyle='#444';ectx.lineWidth=2;ectx.strokeRect(30,30,W-60,H-60);
+    // 삐쩍 마른 탐험가 (human_thin 스킨으로)
+    const prevSkin=selectedSkin;selectedSkin='human_thin';
+    // 쓰러진 상태로
+    ectx.save();ectx.translate(W/2+30,H/2+10);ectx.rotate(Math.PI/2);
+    CHARS.human.draw(ectx,-11,-16,1,0,35000,false,0);
+    ectx.restore();
+    selectedSkin=prevSkin;
+    CHARS.protein_stick.draw(ectx,W/2-80,H/2-16,1,0,35000,true,0);
+    ectx.font='13px "Press Start 2P",monospace';ectx.fillStyle='#ff8844';
+    ectx.fillText('안에 사람이 있다!',W/2,50);
+    if(e.t>120){ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#888';ectx.fillText('...거의 다 죽어가고 있다.',W/2,75);}
+  }else if(e.scene===2){
+    // 단백질 스틱을 발견하고 먹음
+    ectx.fillStyle='#111';ectx.fillRect(0,0,W,H);
+    ectx.fillStyle='#222';ectx.fillRect(30,30,W-60,H-60);
+    ectx.strokeStyle='#444';ectx.lineWidth=2;ectx.strokeRect(30,30,W-60,H-60);
+    const prevSkin=selectedSkin;selectedSkin='human_thin';
+    // 일어나서 단백질 스틱 발견
+    CHARS.human.draw(ectx,W/2+30,H/2-16,-1,Math.floor(e.t/8)%2,35000,true,0);
+    selectedSkin=prevSkin;
+    if(e.t<100){
+      // 단백질 스틱 아이템 표시
+      ectx.fillStyle='#8B6914';ectx.fillRect(W/2-50,H/2,16,28);
+      ectx.fillStyle='#a07820';ectx.fillRect(W/2-50,H/2,16,5);
+    }
+    ectx.font='13px "Press Start 2P",monospace';ectx.fillStyle='#cc7733';
+    if(e.t<100){ectx.fillText('삐쩍이: 저... 저게...!',W/2,45);}
+    else{ectx.fillText('삐쩍이: 냠냠냠냠냠!!!!',W/2,45);}
+    ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#aaa';
+    if(e.t>150)ectx.fillText('(너무 배가 고팠나보다)',W/2,70);
+  }else if(e.scene===3){
+    // 겨우 생존한 삐쩍 마른 사람
+    ectx.fillStyle='#111';ectx.fillRect(0,0,W,H);
+    ectx.fillStyle='#222';ectx.fillRect(30,30,W-60,H-60);
+    const glow=Math.sin(e.t*0.05)*0.2+0.8;
+    ectx.fillStyle=`rgba(139,105,20,${glow*0.1})`;ectx.fillRect(30,30,W-60,H-60);
+    const prevSkin=selectedSkin;selectedSkin='human_thin';
+    CHARS.human.draw(ectx,W/2-11,H/2-30,1,Math.floor(e.t/12)%2,35000,true,0);
+    selectedSkin=prevSkin;
+    CHARS.protein_stick.draw(ectx,W/2+40,H/2-16,-1,0,35000,true,0);
+    ectx.font='11px "Press Start 2P",monospace';ectx.fillStyle='#cc9955';
+    ectx.fillText('삐쩍이: 고... 고마워요.',W/2,45);
+    if(e.t>120){ectx.fillStyle='#8B6914';ectx.fillText('삐쩍이: 당신이 내 목숨을',W/2,70);ectx.fillText('구했어요.',W/2,90);}
+  }else if(e.scene===4){
+    ectx.fillStyle='#111';ectx.fillRect(0,0,W,H);
+    ectx.font='16px "Press Start 2P",monospace';ectx.fillStyle='#cc9955';
+    ectx.fillText('🦴 삐쩍 마른 탐험가 스킨 해금!',W/2,H/2-10);
+    ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#aaa';
+    ectx.fillText('목성에서 구조된 탐험가',W/2,H/2+25);
+  }
+  ectx.textAlign='left';
+}
+
 // ══════════════════════════════════════════════════════
 //  일시정지
 // ══════════════════════════════════════════════════════
@@ -2970,7 +3436,7 @@ function showBattleMenu(){
 function showBattleCharSelect(testMode){
   ov.style.display='flex';
   btl_testMode=!!testMode;
-  const allChars=Object.keys(CHARS).filter(id=>SAVE.hasChar(id)).map(id=>({id,emoji:{human:'🧑',mochi:'🍡',cockroach:'🪳',ice:'❄️',rabbit:'🐰',protein_stick:'🥢',astronaut:'🧑‍🚀',illuminati:'🔺',skeleton:'💀',fish:'🐟'}[id]||'❓',name:CHARS[id].name}));
+  const allChars=Object.keys(CHARS).filter(id=>SAVE.hasChar(id)).map(id=>({id,emoji:{human:'🧑',mochi:'🍡',cockroach:'🪳',ice:'❄️',rabbit:'🐰',protein_stick:'🥢',astronaut:'🧑‍🚀',illuminati:'🔺',skeleton:'💀',fish:'🐟',storm:'🌪️'}[id]||'❓',name:CHARS[id].name}));
   const skinVars=['btlP1Skin','btlP2Skin','btlP3Skin','btlP4Skin'];
   const getSkin=(i)=>[btlP1Skin,btlP2Skin,btlP3Skin,btlP4Skin][i];
   const makeSkinRow=(charId,skinVar)=>{
@@ -3026,6 +3492,7 @@ const BTL_STATS={
   skeleton:{hp:3,kb:10,stun:25,cooldown:25,atkType:'bone',autoFire:true,boneSpeed:10,boneGravity:0.25,boneRange:350,desc:'뼈 투척 (포물선)'},
   fish:{hp:3,kb:8,stun:20,cooldown:360,atkType:'water_stream',autoFire:true,streamRange:190,streamDuration:180,streamTickRate:3,desc:'물기둥 발사 (3초간 지속)'},
   illuminati:{hp:3,kb:12,stun:30,cooldown:60,atkType:'eye_beam',autoFire:true,beamSpeed:16,beamRange:400,blindDuration:120,desc:'빛의 눈 (실명 2초)'},
+  storm:{hp:3,kb:15,stun:30,cooldown:30,atkType:'punch',autoFire:true,desc:'폭풍 (능력 미정)'},
 };
 
 function btlMakePlayer(charId,x,facing,label,color,skin){
@@ -4182,7 +4649,7 @@ function showOnlineLobby(){
   const info=onlineRoomInfo;
   const isHost=onlineRole==='host';
   const pColors=['#7ef','#f88','#8f8','#fb4'];
-  const _emojis={human:'🧑',mochi:'🍡',cockroach:'🪳',ice:'❄️',rabbit:'🐰',protein_stick:'🥢',astronaut:'🧑‍🚀',illuminati:'🔺',skeleton:'💀',fish:'🐟'};
+  const _emojis={human:'🧑',mochi:'🍡',cockroach:'🪳',ice:'❄️',rabbit:'🐰',protein_stick:'🥢',astronaut:'🧑‍🚀',illuminati:'🔺',skeleton:'💀',fish:'🐟',storm:'🌪️'};
   const allChars=Object.keys(CHARS).map(id=>({id,emoji:_emojis[id]||'❓',name:CHARS[id].name}));
   const charEmojis={};const charNames={};for(const c of allChars){charEmojis[c.id]=c.emoji;charNames[c.id]=c.name;}
   const myPlayer=info.players.find(p=>p.idx===onlinePlayerIdx);
