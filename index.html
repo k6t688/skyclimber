@@ -3422,10 +3422,20 @@ function btlUpdatePlayer(p,dt,kL,kR,kJ,kAtk){
   // 물고기 물기둥 (연속 빔)
   if(p.streamTimer>0){
     p.streamTimer-=dt;
-    // 마우스 방향 실시간 추적 (P1/P2)
-    if(p===btl.players[0]||p===btl.players[1]){
-      const cx=p.x+p.w/2,cy=p.worldY+p.h/2-btl.camY;
-      p.streamAngle=Math.atan2(btlMouseY-cy,btlMouseX-cx);
+    // 마우스 방향 실시간 추적
+    if(btl.online&&onlineRole==='host'){
+      if(p===btl.players[0]){
+        const cx=p.x+p.w/2,cy=p.worldY+p.h/2-btl.camY;
+        p.streamAngle=Math.atan2(btlMouseY-cy,btlMouseX-cx);
+      }else{
+        const inp=pendingInputs[btl.players.indexOf(p)];
+        if(inp)p.streamAngle=inp.mg||0;
+      }
+    }else if(!btl.online){
+      if(p===btl.players[0]||p===btl.players[1]){
+        const cx=p.x+p.w/2,cy=p.worldY+p.h/2-btl.camY;
+        p.streamAngle=Math.atan2(btlMouseY-cy,btlMouseX-cx);
+      }
     }
     // 빔 히트 판정 (매 tickRate 프레임마다)
     p._streamTickT=(p._streamTickT||0)+dt;
@@ -4396,7 +4406,8 @@ function sendOnlineInput(){
     j:keys['ArrowUp']||keys['KeyW']||keys['Space']?1:0,
     a:btl._netAtkTriggered?1:0,
     ah:btl._netMouseHeld?1:0,
-    ag:+(btl._netAtkAngle||0).toFixed(3)
+    ag:+(btl._netAtkAngle||0).toFixed(3),
+    mg:+(btl._netAtkAngle||0).toFixed(3)
   }));
   btl._netAtkTriggered=false;
 }
