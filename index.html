@@ -764,7 +764,7 @@ const STAGES=[
     },
     getPlatformGap(h){
       const diff=Math.min(1,(h-25000)/15000);
-      return 75+diff*60+Math.random()*(50+diff*40);
+      return 75+diff*75+Math.random()*(50+diff*40);
     },
     getPlatformType(h){
       if(h<28000)return'mars_dust';
@@ -3620,14 +3620,14 @@ function showBattleCharSelect(testMode){
 const BTL_STATS={
   human:{hp:3,kb:20,stun:40,cooldown:22,atkType:'punch',autoFire:true,desc:'기본 펀치'},
   mochi:{hp:3,kb:0,stun:80,cooldown:50,atkType:'grab',autoFire:true,grabRange:400,grabSpeed:13,desc:'늘어나는 팔로 끌어오기'},
-  cockroach:{hp:4,kb:18,stun:60,cooldown:70,atkType:'bomb',autoFire:true,bombSpeed:10,bombGravity:0.3,bombFuseTime:120,blastRadius:120,desc:'포물선 알 폭탄'},
-  ice:{hp:3,kb:12,stun:24,cooldown:30,atkType:'shard',autoFire:true,shardSpeed:12,shardRange:225,slowDuration:180,desc:'얼음 투사체+슬로우'},
+  cockroach:{hp:4,kb:18,stun:70,cooldown:70,atkType:'bomb',autoFire:true,bombSpeed:10,bombGravity:0.3,bombFuseTime:120,blastRadius:120,desc:'포물선 알 폭탄'},
+  ice:{hp:3,kb:15,stun:24,cooldown:30,atkType:'shard',autoFire:true,shardSpeed:12,shardRange:250,slowDuration:180,desc:'얼음 투사체+슬로우'},
   rabbit:{hp:3,kb:5,stun:8,cooldown:6,atkType:'rapidPunch',autoFire:true,desc:'초고속 연타 (꾹 누르기)'},
   protein_stick:{hp:3,kb:8,stun:40,cooldown:30,atkType:'comboPunch',autoFire:true,comboKbGrow:3,maxComboKb:50,desc:'콤보 펀치 (연타시 넉백↑)'},
   astronaut:{hp:3,kb:20,stun:90,cooldown:80,atkType:'laser',autoFire:true,laserSpeed:18,laserRange:600,slowDuration:180,desc:'레이저 총 (슬로우+기절)'},
   skeleton:{hp:3,kb:10,stun:25,cooldown:25,atkType:'bone',autoFire:true,boneSpeed:10,boneGravity:0.25,boneRange:350,desc:'뼈 투척 (포물선)'},
-  fish:{hp:3,kb:8,stun:20,cooldown:360,atkType:'water_stream',autoFire:true,streamRange:190,streamDuration:180,streamTickRate:3,desc:'물기둥 발사 (3초간 지속)'},
-  illuminati:{hp:3,kb:12,stun:30,cooldown:60,atkType:'eye_beam',autoFire:true,beamSpeed:16,beamRange:400,blindDuration:120,desc:'빛의 눈 (실명 2초)'},
+  fish:{hp:3,kb:8,stun:20,cooldown:270,atkType:'water_stream',autoFire:true,streamRange:190,streamDuration:180,streamTickRate:3,desc:'물기둥 발사 (3초간 지속)'},
+  illuminati:{hp:3,kb:16,stun:30,cooldown:60,atkType:'eye_beam',autoFire:true,beamSpeed:16,beamRange:400,blindDuration:120,desc:'빛의 눈 (실명 2초)'},
   storm:{hp:3,kb:15,stun:30,cooldown:30,atkType:'punch',autoFire:true,desc:'폭풍 (능력 미정)'},
 };
 
