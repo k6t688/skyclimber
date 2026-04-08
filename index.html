@@ -97,10 +97,10 @@ function screenToGame(sx,sy){return{x:(sx-canvasOffX)/canvasScale,y:(sy-canvasOf
 // ══════════════════════════════════════════════════════
 // 버전 리셋
 if(localStorage.getItem('sc_ver')!=='v9'){localStorage.removeItem('sc_chars');localStorage.removeItem('sc_stages');localStorage.removeItem('sc_skins');localStorage.setItem('sc_ver','v9');}
-// 테스트용: 캐릭터 전체 해금
+// 테스트용: 전체 해금
 localStorage.setItem('sc_chars',JSON.stringify(["human","mochi","cockroach","ice","rabbit","protein_stick","astronaut","illuminati","skeleton","fish","storm"]));
-//localStorage.setItem('sc_stages',JSON.stringify([1,2,3]));
-//localStorage.setItem('sc_skins',JSON.stringify(["cockroach_crown","rabbit_frozen","rabbit_muscle","protein_shake","fish_tuna","human_thin"]));
+localStorage.setItem('sc_stages',JSON.stringify([1,2,3]));
+localStorage.setItem('sc_skins',JSON.stringify(["cockroach_crown","rabbit_frozen","rabbit_muscle","protein_shake","fish_tuna","human_thin"]));
 const SAVE={
   get stagesCleared(){ try{return JSON.parse(localStorage.getItem('sc_stages')||'[]');}catch{return[];} },
   set stagesCleared(v){ localStorage.setItem('sc_stages',JSON.stringify(v)); },
