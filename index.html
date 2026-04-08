@@ -704,12 +704,12 @@ const STAGES=[
     ],
     getPlatformWidth(h){
       const diff=Math.min(1,(h-25000)/15000);
-      const base=Math.max(22,140-(140-22)*diff);
+      const base=Math.max(40,140-(140-40)*diff);
       return base+Math.random()*(base*0.2);
     },
     getPlatformGap(h){
       const diff=Math.min(1,(h-25000)/15000);
-      return 75+diff*80+Math.random()*(50+diff*40);
+      return 75+diff*60+Math.random()*(50+diff*40);
     },
     getPlatformType(h){
       if(h<28000)return'mars_dust';
@@ -1101,8 +1101,8 @@ function update(dt){
       p.vy=0;p.onGround=true;p.jumps=p.maxJumps;
       pl.playerOn=true;
       if(pl.vanish&&!pl.vanishTriggered)pl.vanishTriggered=true;
-      // 미끄러운 발판: 마찰을 줄여서 미끄럽게 (유효 마찰 ~0.96, 속도 상한 적용)
-      if(pl.icy&&!pl.frozen){p.vx*=1.08;if(Math.abs(p.vx)>p.speed*1.5)p.vx=Math.sign(p.vx)*p.speed*1.5;}
+      // 미끄러운 발판: 마찰을 줄여서 미끄럽게
+      if(pl.icy&&!pl.frozen){p.vx*=1.14;if(Math.abs(p.vx)>p.speed*2)p.vx=Math.sign(p.vx)*p.speed*2;}
       // 얼음: 발판 동결 (움직이는/부서지는/깜빡이는 모두)
       if(game.char.freezesPlatforms&&(pl.moving||pl.vanish||pl.blink)&&!pl.frozen){
         pl.frozen=true;pl.moving=false;pl.moveSpeed=0;
