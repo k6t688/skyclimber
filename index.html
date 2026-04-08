@@ -173,11 +173,113 @@ const SFX=(()=>{
     uiClick(){if(!throttle('ui'))return;tone(600,0.05,0.08);},
     uiSelect(){if(!throttle('uiS'))return;tone(500,0.06,0.1);tone(700,0.06,0.08);},
     grabHit(){if(!throttle('grab'))return;tone(250,0.1,0.1);noise(0.08,0.08);},
+    bombLaunch(){if(!throttle('bmb'))return;tone(200,0.1,0.1,'sawtooth');tone(120,0.08,0.08);},
+    shardLaunch(){if(!throttle('shl'))return;tone(900,0.08,0.1);tone(1200,0.06,0.06);},
+    boneLaunch(){if(!throttle('bnl'))return;tone(350,0.08,0.08);noise(0.06,0.06);},
+    eyeBeamLaunch(){if(!throttle('ebl'))return;tone(800,0.12,0.1,'sine');tone(1100,0.08,0.06,'sine');},
+    laserLaunch(){if(!throttle('lsl'))return;tone(1000,0.1,0.08,'sine');tone(1400,0.06,0.06,'sine');},
   };
 })();
 document.addEventListener('pointerdown',SFX.resume,{once:true});
 document.addEventListener('keydown',SFX.resume,{once:true});
 document.addEventListener('click',e=>{if(e.target.matches('.btn,.btn-sm,.stage-card,.char-card'))SFX.uiClick();});
+
+// ══════════════════════════════════════════════════════
+//  BGM 시스템 (Web Audio API 코드 생성)
+// ══════════════════════════════════════════════════════
+const BGM=(()=>{
+  let ctx=null,current=null,gainNode=null,vol=0.07;
+  function getCtx(){if(!ctx){ctx=new(window.AudioContext||window.webkitAudioContext)();gainNode=ctx.createGain();gainNode.gain.value=vol;gainNode.connect(ctx.destination);}return ctx;}
+
+  // 멜로디 시퀀서: notes=[{f,d,t}], tempo=BPM
+  function playLoop(notes,tempo,type='sine'){
+    const c=getCtx();
+    const beatDur=60/tempo;
+    const totalDur=notes[notes.length-1].t*beatDur+notes[notes.length-1].d*beatDur;
+    let startTime=c.currentTime+0.05;
+    const oscs=[];
+    for(const n of notes){
+      const o=c.createOscillator();const g=c.createGain();
+      o.type=type;o.frequency.value=n.f;
+      const t0=startTime+n.t*beatDur;
+      const dur=n.d*beatDur;
+      g.gain.setValueAtTime(0.001,t0);
+      g.gain.linearRampToValueAtTime(0.8,t0+0.02);
+      g.gain.setValueAtTime(0.8,t0+dur*0.7);
+      g.gain.exponentialRampToValueAtTime(0.001,t0+dur);
+      o.connect(g);g.connect(gainNode);
+      o.start(t0);o.stop(t0+dur);
+      oscs.push(o);
+    }
+    // 베이스 라인 (한 옥타브 아래)
+    for(const n of notes){
+      if(n.bass===false)continue;
+      if(Math.random()>0.4)continue;
+      const o=c.createOscillator();const g=c.createGain();
+      o.type='triangle';o.frequency.value=n.f/2;
+      const t0=startTime+n.t*beatDur;const dur=n.d*beatDur;
+      g.gain.setValueAtTime(0.001,t0);g.gain.linearRampToValueAtTime(0.5,t0+0.02);
+      g.gain.exponentialRampToValueAtTime(0.001,t0+dur);
+      o.connect(g);g.connect(gainNode);o.start(t0);o.stop(t0+dur);
+      oscs.push(o);
+    }
+    return{oscs,endTime:startTime+totalDur};
+  }
+
+  // 메인 메뉴 BGM: 잔잔한 멜로디
+  const menuNotes=[
+    {f:330,d:2,t:0},{f:392,d:2,t:2},{f:440,d:2,t:4},{f:392,d:2,t:6},
+    {f:330,d:2,t:8},{f:294,d:2,t:10},{f:262,d:2,t:12},{f:294,d:2,t:14},
+    {f:330,d:2,t:16},{f:440,d:2,t:18},{f:392,d:2,t:20},{f:330,d:2,t:22},
+    {f:294,d:2,t:24},{f:262,d:2,t:26},{f:294,d:2,t:28},{f:330,d:2,t:30},
+  ];
+  // 싱글 BGM: 경쾌한 상승감
+  const singleNotes=[
+    {f:262,d:1,t:0},{f:294,d:1,t:1},{f:330,d:1,t:2},{f:392,d:1,t:3},
+    {f:440,d:2,t:4},{f:392,d:1,t:6},{f:330,d:1,t:7},
+    {f:349,d:1,t:8},{f:392,d:1,t:9},{f:440,d:1,t:10},{f:494,d:1,t:11},
+    {f:523,d:2,t:12},{f:494,d:1,t:14},{f:440,d:1,t:15},
+    {f:392,d:1,t:16},{f:440,d:1,t:17},{f:494,d:1,t:18},{f:523,d:1,t:19},
+    {f:587,d:2,t:20},{f:523,d:1,t:22},{f:494,d:1,t:23},
+    {f:440,d:1,t:24},{f:392,d:1,t:25},{f:330,d:1,t:26},{f:294,d:1,t:27},
+    {f:262,d:2,t:28},{f:294,d:1,t:30},{f:330,d:1,t:31},
+  ];
+  // 배틀 BGM: 긴박한 전투감
+  const battleNotes=[
+    {f:165,d:0.5,t:0},{f:165,d:0.5,t:0.5},{f:196,d:0.5,t:1},{f:165,d:0.5,t:1.5},
+    {f:220,d:1,t:2},{f:196,d:0.5,t:3},{f:165,d:0.5,t:3.5},
+    {f:165,d:0.5,t:4},{f:165,d:0.5,t:4.5},{f:247,d:0.5,t:5},{f:220,d:0.5,t:5.5},
+    {f:196,d:1,t:6},{f:165,d:0.5,t:7},{f:147,d:0.5,t:7.5},
+    {f:165,d:0.5,t:8},{f:196,d:0.5,t:8.5},{f:220,d:0.5,t:9},{f:262,d:0.5,t:9.5},
+    {f:247,d:1,t:10},{f:220,d:0.5,t:11},{f:196,d:0.5,t:11.5},
+    {f:220,d:0.5,t:12},{f:196,d:0.5,t:12.5},{f:165,d:0.5,t:13},{f:147,d:0.5,t:13.5},
+    {f:165,d:1,t:14},{f:147,d:0.5,t:15},{f:165,d:0.5,t:15.5},
+  ];
+
+  let loopTimer=null;
+  function startLoop(notes,tempo,type){
+    stop();
+    function doLoop(){
+      if(ctx&&ctx.state==='suspended')ctx.resume();
+      const r=playLoop(notes,tempo,type);
+      current=r;
+      const dur=(r.endTime-getCtx().currentTime)*1000;
+      loopTimer=setTimeout(doLoop,Math.max(100,dur-50));
+    }
+    doLoop();
+  }
+  function stop(){
+    if(loopTimer){clearTimeout(loopTimer);loopTimer=null;}
+    if(current){current.oscs.forEach(o=>{try{o.stop();}catch(e){}});current=null;}
+  }
+  return{
+    menu(){startLoop(menuNotes,100,'sine');},
+    single(){startLoop(singleNotes,140,'square');},
+    battle(){startLoop(battleNotes,180,'square');},
+    stop,
+    setVol(v){vol=v;if(gainNode)gainNode.gain.value=v;},
+  };
+})();
 
 // ══════════════════════════════════════════════════════
 //  캐릭터 정의
@@ -794,7 +896,7 @@ const ov=document.getElementById('overlay');
 // ══════════════════════════════════════════════════════
 //  메인 메뉴
 // ══════════════════════════════════════════════════════
-function showMainMenu(){
+function showMainMenu(){BGM.menu();
   ov.style.display='flex';
   document.getElementById('ui').style.display='none';
   if(btlRunning){btlStopLoop();btl=null;}
@@ -915,7 +1017,7 @@ function selectChar(id){
 // ══════════════════════════════════════════════════════
 //  게임 시작
 // ══════════════════════════════════════════════════════
-function startStage(stageId){
+function startStage(stageId){BGM.single();
   currentStage=stageId;
   const sd=STAGES[stageId-1];
   ov.style.display='none';
@@ -1251,7 +1353,7 @@ function getZone(){
 }
 
 function die(){
-  stopLoop();SFX.death();
+  stopLoop();SFX.death();BGM.stop();
   const diff=Math.min(1,(game.height-game.stageData.startH)/(game.stageData.endH-game.stageData.startH));
   const stars='★'.repeat(Math.ceil(diff*5))+'☆'.repeat(5-Math.ceil(diff*5));
   ov.innerHTML=`
@@ -1390,7 +1492,7 @@ function render(){
 // ══════════════════════════════════════════════════════
 //  엔딩 씬
 // ══════════════════════════════════════════════════════
-function startEnding(){SFX.endingStart();
+function startEnding(){SFX.endingStart();BGM.stop();
   const s=game.stage,c=selectedChar;
   if(s===1&&c==='human')startMoonEnding();
   else if(s===1&&c==='mochi')startMochiMoonEnding();
@@ -1733,7 +1835,7 @@ function endingDone(){
   document.onkeydown=null;
   if(ending&&ending.unlockChar){SAVE.unlockChar(ending.unlockChar);SFX.unlock();}
   if(ending&&ending.unlockSkin){SAVE.unlockSkin(ending.unlockSkin);SFX.unlock();}
-  ending=null;
+  ending=null;BGM.menu();
   showStageSelect();
 }
 
@@ -3700,11 +3802,11 @@ function startBattle(testMode){
       btl.platforms.push({x:r3*(W-pw),worldY:wy,w:pw,h:14,type:btlGetPlatType(r4)});
     }
   }
-  btlRunning=true;btlLastTime=performance.now();
+  btlRunning=true;btlLastTime=performance.now();BGM.battle();
   btlLoopId=requestAnimationFrame(btlLoop);
 }
 
-function btlStopLoop(){btlRunning=false;if(btlLoopId){cancelAnimationFrame(btlLoopId);btlLoopId=null;}}
+function btlStopLoop(){btlRunning=false;if(btlLoopId){cancelAnimationFrame(btlLoopId);btlLoopId=null;}BGM.stop();}
 
 function showBtlEndUI(){
   if(!btl||btl.state!=='ended')return;
@@ -4650,7 +4752,7 @@ function btlTriggerAttack(p,mx,my){
   }else if(bs.atkType==='bomb'){
     // 바퀴벌레: 포물선 알 폭탄
     if(p.attackCooldown>0)return;
-    p.attackCooldown=bs.cooldown;
+    p.attackCooldown=bs.cooldown;SFX.bombLaunch();
     const spd=bs.bombSpeed;
     btl.projectiles.push({type:'bomb',owner:p,x:p.x+p.w/2,y:p.worldY+p.h/2,
       vx:Math.cos(angle)*spd,vy:Math.sin(angle)*spd,gravity:bs.bombGravity,
@@ -4658,14 +4760,14 @@ function btlTriggerAttack(p,mx,my){
   }else if(bs.atkType==='shard'){
     // 얼음: 짧은 투사체
     if(p.attackCooldown>0)return;
-    p.attackCooldown=bs.cooldown;
+    p.attackCooldown=bs.cooldown;SFX.shardLaunch();
     btl.projectiles.push({type:'shard',owner:p,x:p.x+p.w/2,y:p.worldY+p.h/2,
       vx:Math.cos(angle)*bs.shardSpeed,vy:Math.sin(angle)*bs.shardSpeed,
       dist:0,maxDist:bs.shardRange,stun:bs.stun,kb:bs.kb,slowDur:bs.slowDuration});
   }else if(bs.atkType==='laser'){
     // 우주비행사: 레이저 총
     if(p.attackCooldown>0)return;
-    p.attackCooldown=bs.cooldown;
+    p.attackCooldown=bs.cooldown;SFX.laserLaunch();
     btl.projectiles.push({type:'laser',owner:p,x:p.x+p.w/2,y:p.worldY+p.h/2,
       vx:Math.cos(angle)*bs.laserSpeed,vy:Math.sin(angle)*bs.laserSpeed,
       dist:0,maxDist:bs.laserRange,stun:bs.stun,kb:bs.kb,slowDur:bs.slowDuration});
@@ -4675,7 +4777,7 @@ function btlTriggerAttack(p,mx,my){
     p.attackAngle=angle;p.attacking=true;p.attackTimer=10;p.attackCooldown=bs.cooldown;SFX.punchSwing();
   }else if(bs.atkType==='bone'){
     if(p.attackCooldown>0)return;
-    p.attackCooldown=bs.cooldown;
+    p.attackCooldown=bs.cooldown;SFX.boneLaunch();
     btl.projectiles.push({type:'bone',owner:p,x:p.x+p.w/2,y:p.worldY+p.h/2,
       vx:Math.cos(angle)*bs.boneSpeed,vy:Math.sin(angle)*bs.boneSpeed,
       gravity:bs.boneGravity,dist:0,maxDist:bs.boneRange,stun:bs.stun,kb:bs.kb});
@@ -4686,7 +4788,7 @@ function btlTriggerAttack(p,mx,my){
     p.streamAngle=angle;SFX.waterStream();
   }else if(bs.atkType==='eye_beam'){
     if(p.attackCooldown>0)return;
-    p.attackCooldown=bs.cooldown;
+    p.attackCooldown=bs.cooldown;SFX.eyeBeamLaunch();
     btl.projectiles.push({type:'eye_beam',owner:p,x:p.x+p.w/2,y:p.worldY+p.h/2,
       vx:Math.cos(angle)*bs.beamSpeed,vy:Math.sin(angle)*bs.beamSpeed,
       dist:0,maxDist:bs.beamRange,stun:bs.stun,kb:bs.kb,blindDur:bs.blindDuration});
@@ -5001,7 +5103,7 @@ function startOnlineGame(msg){
     btl.platforms.push({x:r3*(W-pw),worldY:wy,w:pw,h:14,type:btlGetPlatType(r4)});
   }
   pendingInputs=[null,null,null,null];
-  btlRunning=true;btlLastTime=performance.now();
+  btlRunning=true;btlLastTime=performance.now();BGM.battle();
   btlLoopId=requestAnimationFrame(btlLoop);
 }
 
@@ -5166,22 +5268,22 @@ function btlTriggerAttackByAngle(p,angle){
     p.grabArm={x:cx,y:cy,vx:Math.cos(angle)*bs.grabSpeed,vy:Math.sin(angle)*bs.grabSpeed,dist:0,maxDist:bs.grabRange,hit:false,returning:false,target:null};
   }else if(bs.atkType==='bomb'){
     if(p.attackCooldown>0)return;
-    p.attackCooldown=bs.cooldown;
+    p.attackCooldown=bs.cooldown;SFX.bombLaunch();
     btl.projectiles.push({type:'bomb',owner:p,x:p.x+p.w/2,y:p.worldY+p.h/2,vx:Math.cos(angle)*bs.bombSpeed,vy:Math.sin(angle)*bs.bombSpeed,gravity:bs.bombGravity,fuse:bs.bombFuseTime,landed:false,radius:bs.blastRadius,stun:bs.stun,kb:bs.kb});
   }else if(bs.atkType==='shard'){
     if(p.attackCooldown>0)return;
-    p.attackCooldown=bs.cooldown;
+    p.attackCooldown=bs.cooldown;SFX.shardLaunch();
     btl.projectiles.push({type:'shard',owner:p,x:p.x+p.w/2,y:p.worldY+p.h/2,vx:Math.cos(angle)*bs.shardSpeed,vy:Math.sin(angle)*bs.shardSpeed,dist:0,maxDist:bs.shardRange,stun:bs.stun,kb:bs.kb,slowDur:bs.slowDuration});
   }else if(bs.atkType==='laser'){
     if(p.attackCooldown>0)return;
-    p.attackCooldown=bs.cooldown;
+    p.attackCooldown=bs.cooldown;SFX.laserLaunch();
     btl.projectiles.push({type:'laser',owner:p,x:p.x+p.w/2,y:p.worldY+p.h/2,vx:Math.cos(angle)*bs.laserSpeed,vy:Math.sin(angle)*bs.laserSpeed,dist:0,maxDist:bs.laserRange,stun:bs.stun,kb:bs.kb,slowDur:bs.slowDuration});
   }else if(bs.atkType==='comboPunch'){
     if(p.attacking||p.attackCooldown>0)return;
     p.attackAngle=angle;p.attacking=true;p.attackTimer=10;p.attackCooldown=bs.cooldown;SFX.punchSwing();
   }else if(bs.atkType==='bone'){
     if(p.attackCooldown>0)return;
-    p.attackCooldown=bs.cooldown;
+    p.attackCooldown=bs.cooldown;SFX.boneLaunch();
     btl.projectiles.push({type:'bone',owner:p,x:p.x+p.w/2,y:p.worldY+p.h/2,vx:Math.cos(angle)*bs.boneSpeed,vy:Math.sin(angle)*bs.boneSpeed,gravity:bs.boneGravity,dist:0,maxDist:bs.boneRange,stun:bs.stun,kb:bs.kb});
   }else if(bs.atkType==='water_stream'){
     if(p.attackCooldown>0||p.streamTimer>0)return;
@@ -5190,7 +5292,7 @@ function btlTriggerAttackByAngle(p,angle){
     p.streamAngle=angle;SFX.waterStream();
   }else if(bs.atkType==='eye_beam'){
     if(p.attackCooldown>0)return;
-    p.attackCooldown=bs.cooldown;
+    p.attackCooldown=bs.cooldown;SFX.eyeBeamLaunch();
     btl.projectiles.push({type:'eye_beam',owner:p,x:p.x+p.w/2,y:p.worldY+p.h/2,vx:Math.cos(angle)*bs.beamSpeed,vy:Math.sin(angle)*bs.beamSpeed,dist:0,maxDist:bs.beamRange,stun:bs.stun,kb:bs.kb,blindDur:bs.blindDuration});
   }else{
     if(p.attacking||p.attackCooldown>0)return;
