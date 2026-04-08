@@ -4072,7 +4072,7 @@ function btlCheckHit(atk,tgt){
   const bs=atk.bs;
   // 펀치 계열 (human, rabbit, protein_stick)
   if(bs.atkType==='punch'||bs.atkType==='rapidPunch'||bs.atkType==='comboPunch'){
-    if(!atk.attacking||atk.attackTimer>8||atk.attackTimer<1)return;
+    if(!atk.attacking||atk.attackTimer<1)return;
     if(tgt.stunTimer>0)return;
     const cx=atk.x+atk.w/2,cy=atk.worldY+atk.h/2;
     const maxT=bs.atkType==='rapidPunch'?8:bs.atkType==='comboPunch'?10:12;
