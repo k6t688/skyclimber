@@ -97,10 +97,10 @@ function screenToGame(sx,sy){return{x:(sx-canvasOffX)/canvasScale,y:(sy-canvasOf
 // ══════════════════════════════════════════════════════
 // 버전 리셋
 if(localStorage.getItem('sc_ver')!=='v9'){localStorage.removeItem('sc_chars');localStorage.removeItem('sc_stages');localStorage.removeItem('sc_skins');localStorage.setItem('sc_ver','v9');}
-// 테스트용: 전체 해금
-localStorage.setItem('sc_chars',JSON.stringify(["human","mochi","cockroach","ice","rabbit","protein_stick","astronaut","illuminati","skeleton","fish","storm"]));
-localStorage.setItem('sc_stages',JSON.stringify([1,2,3]));
-localStorage.setItem('sc_skins',JSON.stringify(["cockroach_crown","rabbit_frozen","rabbit_muscle","protein_shake","fish_tuna","human_thin"]));
+// 테스트용: 전체 해금 (배포 시 비활성화)
+//localStorage.setItem('sc_chars',JSON.stringify(["human","mochi","cockroach","ice","rabbit","protein_stick","astronaut","illuminati","skeleton","fish","storm"]));
+//localStorage.setItem('sc_stages',JSON.stringify([1,2,3]));
+//localStorage.setItem('sc_skins',JSON.stringify(["cockroach_crown","rabbit_frozen","rabbit_muscle","protein_shake","fish_tuna","human_thin"]));
 const SAVE={
   get stagesCleared(){ try{return JSON.parse(localStorage.getItem('sc_stages')||'[]');}catch{return[];} },
   set stagesCleared(v){ localStorage.setItem('sc_stages',JSON.stringify(v)); },
@@ -333,6 +333,60 @@ const CHARS={
     crouchTime:10,
     bodyColor:(h)=>['#8B6914','#5a4010'],
     draw(ctx,sx,sy,f,frame,h,onGround,vy){
+      if(selectedSkin==='protein_shake'){
+        // 단백질 쉐이크 컵 스킨
+        const spinning=!onGround&&game&&game.p;
+        if(spinning&&game.p.spinAngle!==undefined){
+          ctx.save();
+          ctx.translate(sx+11,sy+16);
+          ctx.rotate(game.p.spinAngle);
+          // 컵 몸체 (아래로 좁아지는 사다리꼴)
+          ctx.fillStyle='#e8e8f0';
+          ctx.beginPath();ctx.moveTo(-7,-12);ctx.lineTo(7,-12);ctx.lineTo(5,12);ctx.lineTo(-5,12);ctx.closePath();ctx.fill();
+          // 컵 테두리
+          ctx.fillStyle='#ccc';ctx.fillRect(-8,-14,16,3);
+          // 쉐이크 내용물 (분홍)
+          ctx.fillStyle='#ff88aa';
+          ctx.beginPath();ctx.moveTo(-6,-6);ctx.lineTo(6,-6);ctx.lineTo(5,10);ctx.lineTo(-5,10);ctx.closePath();ctx.fill();
+          // 거품
+          ctx.fillStyle='#ffccdd';
+          ctx.beginPath();ctx.arc(-2,-6,3,Math.PI,0);ctx.fill();
+          ctx.beginPath();ctx.arc(3,-6,3,Math.PI,0);ctx.fill();
+          // 빨대
+          ctx.fillStyle='#ff4466';ctx.save();ctx.rotate(-0.3);ctx.fillRect(2,-18,2,16);ctx.restore();
+          // 눈
+          ctx.fillStyle='#333';ctx.fillRect(-3,0,2,2);ctx.fillRect(2,0,2,2);
+          // 입 (빨대 빨기)
+          ctx.fillStyle='#cc6688';ctx.fillRect(-1,3,3,2);
+          ctx.restore();
+        }else{
+          // 그림자
+          ctx.fillStyle='rgba(0,0,0,0.15)';ctx.fillRect(sx+3,sy+34,16,4);
+          // 컵 몸체 (아래로 좁아지는 사다리꼴)
+          ctx.fillStyle='#e8e8f0';
+          ctx.beginPath();ctx.moveTo(sx+4,sy+4);ctx.lineTo(sx+18,sy+4);ctx.lineTo(sx+16,sy+30);ctx.lineTo(sx+6,sy+30);ctx.closePath();ctx.fill();
+          // 컵 테두리 (윗부분 넓게)
+          ctx.fillStyle='#ccc';ctx.fillRect(sx+3,sy+2,16,3);
+          // 쉐이크 내용물 (분홍)
+          ctx.fillStyle='#ff88aa';
+          ctx.beginPath();ctx.moveTo(sx+5,sy+10);ctx.lineTo(sx+17,sy+10);ctx.lineTo(sx+16,sy+28);ctx.lineTo(sx+6,sy+28);ctx.closePath();ctx.fill();
+          // 거품 (위에 둥둥)
+          ctx.fillStyle='#ffccdd';
+          ctx.beginPath();ctx.arc(sx+8,sy+10,3,Math.PI,0);ctx.fill();
+          ctx.beginPath();ctx.arc(sx+13,sy+10,3,Math.PI,0);ctx.fill();
+          // 빨대 (비스듬히)
+          ctx.save();ctx.translate(sx+14,sy+2);ctx.rotate(-0.3);
+          ctx.fillStyle='#ff4466';ctx.fillRect(0,-8,2,16);ctx.restore();
+          // 눈
+          const ex=f>0?sx+12:sx+6;
+          ctx.fillStyle='#333';ctx.fillRect(ex,sy+16,2,2);ctx.fillRect(ex+5,sy+16,2,2);
+          // 입 (빨대 마시는 표정)
+          ctx.fillStyle='#cc6688';ctx.fillRect(ex+2,sy+20,3,2);
+          // 컵 로고 (P)
+          ctx.fillStyle='rgba(200,100,140,0.4)';ctx.font='8px sans-serif';ctx.fillText('P',sx+9,sy+24);
+        }
+        return;
+      }
       const spinning=!onGround&&game&&game.p;
       if(spinning&&game.p.spinAngle!==undefined){
         ctx.save();
@@ -503,37 +557,62 @@ const CHARS={
   },
   storm:{
     id:'storm', name:'폭풍',
-    desc:'목성의 대폭풍\n바퀴벌레도 날린다\n능력 미정',
+    desc:'목성의 대폭풍\n바퀴벌레도 날린다\n2단 점프',
     jumpForce:-14, jumpCount:2, speed:5, friction:0.8,
-    bodyColor:(h)=>['#334466','#223355'],
+    bodyColor:(h)=>['#556688','#334466'],
     draw(ctx,sx,sy,f,frame,h,onGround,vy){
-      const spin=frame*0.15;
-      // 소용돌이 구름 몸체 (3겹 원)
-      ctx.fillStyle='rgba(60,80,120,0.9)';
-      ctx.beginPath();ctx.ellipse(sx+11,sy+14,12,10,spin,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle='rgba(80,100,150,0.85)';
-      ctx.beginPath();ctx.ellipse(sx+11,sy+14,9,7,spin+1,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle='rgba(100,130,180,0.8)';
-      ctx.beginPath();ctx.ellipse(sx+11,sy+14,6,4,spin+2,0,Math.PI*2);ctx.fill();
-      // 번개 (노란 지그재그)
-      ctx.fillStyle='#ffe040';
-      const lx=f>0?sx+13:sx+5;
-      ctx.beginPath();ctx.moveTo(lx,sy+2);ctx.lineTo(lx-3,sy+10);ctx.lineTo(lx+1,sy+10);ctx.lineTo(lx-3,sy+20);ctx.lineTo(lx+5,sy+11);ctx.lineTo(lx+1,sy+11);ctx.lineTo(lx+5,sy+2);ctx.closePath();ctx.fill();
-      // 눈 (흰색 + 화난 눈썹)
-      const ex=f>0?sx+14:sx+4;
-      ctx.fillStyle='#fff';ctx.fillRect(ex,sy+8,4,3);
-      ctx.fillStyle='#111';ctx.fillRect(ex+1,sy+9,2,2);
-      ctx.fillStyle='#fff';ctx.fillRect(ex+6,sy+8,4,3);
-      ctx.fillStyle='#111';ctx.fillRect(ex+7,sy+9,2,2);
+      const spin=frame*0.2;
+      const cx=sx+11,cy=sy+16;
+      // 회오리 몸체: 위→아래 점점 넓어지는 깔때기
+      // 5단계 타원으로 회오리 표현
+      const layers=[
+        {y:-10,rx:4,ry:2,c:'rgba(180,200,230,0.95)'},
+        {y:-5,rx:6,ry:2.5,c:'rgba(140,170,210,0.9)'},
+        {y:1,rx:8,ry:3,c:'rgba(100,140,190,0.85)'},
+        {y:7,rx:10,ry:3.5,c:'rgba(70,110,170,0.8)'},
+        {y:13,rx:12,ry:4,c:'rgba(50,80,140,0.75)'},
+      ];
+      for(let i=0;i<layers.length;i++){
+        const l=layers[i];
+        const ang=spin+i*0.6;
+        ctx.fillStyle=l.c;
+        ctx.beginPath();ctx.ellipse(cx+Math.sin(ang)*1.5,cy+l.y,l.rx,l.ry,ang*0.3,0,Math.PI*2);ctx.fill();
+        // 각 층 하이라이트
+        ctx.fillStyle='rgba(220,235,255,0.3)';
+        ctx.beginPath();ctx.ellipse(cx+Math.sin(ang)*1.5-l.rx*0.3,cy+l.y-l.ry*0.2,l.rx*0.4,l.ry*0.5,ang*0.3,0,Math.PI*2);ctx.fill();
+      }
+      // 회오리 소용돌이 줄무늬
+      ctx.strokeStyle='rgba(200,220,250,0.5)';ctx.lineWidth=1.5;
+      ctx.beginPath();
+      for(let t=0;t<Math.PI*3;t+=0.15){
+        const r=3+t*2.5;const a=t+spin*2;
+        const px=cx+Math.cos(a)*r*0.5;
+        const py=cy-12+t*3;
+        if(t===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+        if(py>cy+16)break;
+      }
+      ctx.stroke();
+      // 눈 (회오리 윗부분에)
+      const ex=f>0?cx+1:cx-5;
+      ctx.fillStyle='#fff';ctx.fillRect(ex,cy-9,3,3);ctx.fillRect(ex+5,cy-9,3,3);
+      ctx.fillStyle='#112';ctx.fillRect(ex+1,cy-8,2,2);ctx.fillRect(ex+6,cy-8,2,2);
       // 화난 눈썹
-      ctx.fillStyle='#334466';
-      if(f>0){ctx.fillRect(ex,sy+7,5,2);ctx.fillRect(ex+6,sy+6,4,2);}
-      else{ctx.fillRect(ex,sy+6,4,2);ctx.fillRect(ex+6,sy+7,5,2);}
-      // 주변 바람 파티클
-      ctx.fillStyle='rgba(150,180,220,0.6)';
-      for(let i=0;i<4;i++){
-        const a=spin+i*Math.PI/2;
-        ctx.beginPath();ctx.arc(sx+11+Math.cos(a)*14,sy+14+Math.sin(a)*11,2,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='rgba(40,60,100,0.9)';
+      if(f>0){ctx.fillRect(ex-1,cy-11,4,1.5);ctx.fillRect(ex+5,cy-12,4,1.5);}
+      else{ctx.fillRect(ex-1,cy-12,4,1.5);ctx.fillRect(ex+5,cy-11,4,1.5);}
+      // 주변 파편 파티클 (빙글빙글 도는 작은 조각들)
+      ctx.fillStyle='rgba(160,190,230,0.7)';
+      for(let i=0;i<5;i++){
+        const a=spin*3+i*Math.PI*2/5;
+        const dist=14+Math.sin(a*2)*3;
+        const px=cx+Math.cos(a)*dist;
+        const py=cy+Math.sin(a)*8+i*2-4;
+        ctx.fillRect(px-1,py-1,3,2);
+      }
+      // 바닥 먼지 구름 (착지 시)
+      if(onGround){
+        ctx.fillStyle='rgba(180,170,150,0.4)';
+        ctx.beginPath();ctx.ellipse(cx,cy+17,14,3,0,0,Math.PI*2);ctx.fill();
       }
     }
   }
@@ -742,6 +821,8 @@ function showCharSelect(){
      desc:'뼈만 남은 탐험가<br>가벼운 몸<br>2단 점프'},
     {id:'fish',emoji:'🐟',name:'물고기',
      desc:'유로파의 물고기<br>높은 점프력!<br>2단 점프'},
+    {id:'storm',emoji:'🌪️',name:'폭풍',
+     desc:'목성의 대폭풍<br>바퀴벌레도 날린다<br>2단 점프'},
   ];
   const visible=allChars.filter(c=>SAVE.hasChar(c.id));
   const cards=visible.map(c=>{
@@ -792,7 +873,7 @@ function startStage(stageId){
   game={
     stage:stageId,
     stageData:sd,
-    height:sd.endH-300,
+    height:sd.startH,
     camY:-(H-60),
     platforms:[],
     cometTimer:60,
@@ -3994,9 +4075,11 @@ function btlCheckHit(atk,tgt){
     if(!atk.attacking||atk.attackTimer>8||atk.attackTimer<1)return;
     if(tgt.stunTimer>0)return;
     const cx=atk.x+atk.w/2,cy=atk.worldY+atk.h/2;
-    const reach=90;
-    const fistX=cx+Math.cos(atk.attackAngle)*reach;
-    const fistY=cy+Math.sin(atk.attackAngle)*reach;
+    const maxT=bs.atkType==='rapidPunch'?8:bs.atkType==='comboPunch'?10:12;
+    const prog=atk.attackTimer/maxT;
+    const ext=Math.sin(prog*Math.PI)*90;
+    const fistX=cx+Math.cos(atk.attackAngle)*ext;
+    const fistY=cy+Math.sin(atk.attackAngle)*ext;
     const dx=(tgt.x+tgt.w/2)-fistX,dy=(tgt.worldY+tgt.h/2)-fistY;
     if(Math.sqrt(dx*dx+dy*dy)<36){
       let kb=bs.kb;
