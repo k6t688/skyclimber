@@ -98,7 +98,7 @@ function screenToGame(sx,sy){return{x:(sx-canvasOffX)/canvasScale,y:(sy-canvasOf
 // 버전 리셋
 if(localStorage.getItem('sc_ver')!=='v9'){localStorage.removeItem('sc_chars');localStorage.removeItem('sc_stages');localStorage.removeItem('sc_skins');localStorage.setItem('sc_ver','v9');}
 // 테스트용: 전체 해금
-localStorage.setItem('sc_chars',JSON.stringify(["human","mochi","cockroach","ice","rabbit","protein_stick","astronaut","illuminati","skeleton","fish","storm"]));
+localStorage.setItem('sc_chars',JSON.stringify(["human","mochi","cockroach","ice","rabbit","protein_stick","astronaut","illuminati","skeleton","fish","storm","zombie"]));
 localStorage.setItem('sc_stages',JSON.stringify([1,2,3]));
 localStorage.setItem('sc_skins',JSON.stringify(["cockroach_crown","rabbit_frozen","rabbit_muscle","protein_shake","fish_tuna","human_thin"]));
 const SAVE={
@@ -775,6 +775,44 @@ const CHARS={
         ctx.beginPath();ctx.ellipse(cx,cy+17,14,3,0,0,Math.PI*2);ctx.fill();
       }
     }
+  },
+  zombie:{
+    id:'zombie', name:'좀비',
+    desc:'가스에 중독된 우주비행사\n느릿느릿 움직인다\n2단 점프\n능력: ???',
+    jumpForce:-13, jumpCount:2, speed:4, friction:0.75,
+    bodyColor:(h)=>['#5a7a4a','#3a5a2a'],
+    draw(ctx,sx,sy,f,frame,h,onGround,vy){
+      const wobble=Math.sin((h||0)*0.04)*1.5;
+      const leg=(frame%2===0)?0:3;
+      // 다리 (찢어진 바지)
+      ctx.fillStyle='#3a5a2a';ctx.fillRect(sx+3,sy+22,7,8+leg);ctx.fillRect(sx+12,sy+22,7,8+(3-leg));
+      ctx.fillStyle='#2a4a1a';ctx.fillRect(sx+4,sy+28+leg,5,3);ctx.fillRect(sx+13,sy+28+(3-leg),5,3);
+      // 몸통 (찢어진 우주복 잔해)
+      ctx.fillStyle='#5a7a4a';ctx.fillRect(sx+2,sy+8,18,15);
+      // 우주복 잔해 (한쪽 어깨만)
+      ctx.fillStyle='#888';ctx.fillRect(sx+1,sy+8,5,6);
+      ctx.fillStyle='#666';ctx.fillRect(sx+1,sy+10,3,3);
+      // 머리 (녹색 피부)
+      ctx.fillStyle='#6a8a5a';ctx.fillRect(sx+3+wobble,sy+1,16,10);
+      // 깨진 헬멧 잔해 (오른쪽 반만)
+      ctx.fillStyle='rgba(150,150,150,0.4)';ctx.fillRect(sx+12+wobble,sy,8,8);
+      ctx.fillStyle='rgba(100,180,200,0.2)';ctx.fillRect(sx+13+wobble,sy+1,5,5);
+      // 눈 (빨갛게 충혈)
+      const ex=f>0?sx+5:sx+3;
+      ctx.fillStyle='#ff2222';ctx.fillRect(ex+wobble,sy+4,3,3);ctx.fillRect(ex+7+wobble,sy+4,3,3);
+      ctx.fillStyle='#440000';ctx.fillRect(ex+1+wobble,sy+5,2,2);ctx.fillRect(ex+8+wobble,sy+5,2,2);
+      // 입 (벌어진 입)
+      ctx.fillStyle='#2a3a1a';ctx.fillRect(sx+7+wobble,sy+8,8,3);
+      ctx.fillStyle='#ddd';ctx.fillRect(sx+8+wobble,sy+8,2,2);ctx.fillRect(sx+12+wobble,sy+8,2,2);
+      // 팔 (한쪽은 늘어진 채)
+      ctx.fillStyle='#5a7a4a';ctx.fillRect(sx-2,sy+10,4,12);
+      ctx.fillRect(sx+20,sy+12,4,8+Math.sin((h||0)*0.03)*3);
+      // 독 가스 이펙트 (몸 주변)
+      if(!onGround||Math.random()<0.3){
+        ctx.fillStyle='rgba(100,200,50,0.15)';
+        ctx.beginPath();ctx.arc(sx+11,sy+12,14+Math.sin((h||0)*0.05)*3,0,Math.PI*2);ctx.fill();
+      }
+    }
   }
 };
 
@@ -983,6 +1021,8 @@ function showCharSelect(){
      desc:'유로파의 물고기<br>높은 점프력!<br>2단 점프'},
     {id:'storm',emoji:'🌪️',name:'폭풍',
      desc:'목성의 대폭풍<br>1단 높은 점프<br>느린 낙하'},
+    {id:'zombie',emoji:'🧟',name:'좀비',
+     desc:'가스에 중독된 우주비행사<br>느릿느릿<br>능력: ???'},
   ];
   const visible=allChars.filter(c=>SAVE.hasChar(c.id));
   const cards=visible.map(c=>{
@@ -1519,6 +1559,7 @@ function startEnding(){SFX.endingStart();BGM.stop();
   else if(s===3&&c==='ice')startIceS3Ending();
   else if(s===3&&c==='rabbit')startRabbitS3Ending();
   else if(s===3&&c==='protein_stick')startProteinS3Ending();
+  else if(s===3&&c==='astronaut')startAstronautS3Ending();
   else startDefaultEnding();
 }
 
@@ -1590,6 +1631,7 @@ function endingLoop(ts){
   else if(ending.type==='ice_s3'){updateIceS3Ending(ending);renderIceS3Ending(ending);}
   else if(ending.type==='rabbit_s3'){updateRabbitS3Ending(ending);renderRabbitS3Ending(ending);}
   else if(ending.type==='protein_s3'){updateProteinS3Ending(ending);renderProteinS3Ending(ending);}
+  else if(ending.type==='astronaut_s3'){updateAstronautS3Ending(ending);renderAstronautS3Ending(ending);}
   if(ending)requestAnimationFrame(endingLoop);
 }
 
@@ -3449,6 +3491,179 @@ function renderProteinS3Ending(e){
   ectx.textAlign='left';
 }
 
+// ─── 우주비행사 ST3 엔딩 (좀비 캐릭터 해금) ────────────
+function startAstronautS3Ending(){
+  eCanvas.style.display='block';document.getElementById('ui').style.display='none';
+  ending={type:'astronaut_s3',t:0,scene:0,char:selectedChar,
+    gasAlpha:0,gasParticles:[],
+    stars:Array.from({length:80},()=>({x:Math.random()*W,y:Math.random()*H,sz:Math.random()<0.3?2:1,tw:Math.random()*Math.PI*2}))};
+  endLastTime=performance.now();requestAnimationFrame(endingLoop);
+}
+function updateAstronautS3Ending(e){
+  e.t+=1;
+  // 가스 파티클 추가
+  if(e.scene>=1&&e.scene<=2&&Math.random()<0.3){
+    e.gasParticles.push({x:Math.random()*W,y:H+10,vx:(Math.random()-0.5)*1.5,vy:-0.5-Math.random()*1.5,
+      life:1,decay:0.005+Math.random()*0.005,sz:20+Math.random()*30,col:Math.random()>0.5?'rgba(80,180,40,':'rgba(120,200,60,'});
+  }
+  for(const g of e.gasParticles){g.x+=g.vx;g.y+=g.vy;g.life-=g.decay;}
+  e.gasParticles=e.gasParticles.filter(g=>g.life>0);
+  if(e.scene===0&&e.t>360){e.scene=1;e.t=0;}
+  if(e.scene===1&&e.t>400){e.scene=2;e.t=0;}
+  if(e.scene===2&&e.t>400){e.scene=3;e.t=0;}
+  if(e.scene===3&&e.t>400){e.scene=4;e.t=0;SAVE.unlockChar('zombie');SFX.unlock();}
+  if(e.scene===4&&e.t>360){endingDone();}
+  if(e.scene===4&&e.t>100&&!eCanvas._endingBound){eCanvas._endingBound=true;eCanvas.onclick=()=>endingDone();document.onkeydown=(ev)=>{if(ev.code!=='F5'&&ev.code!=='F12')endingDone();};}
+}
+function renderAstronautS3Ending(e){
+  ectx.textAlign='center';
+  for(const s of e.stars){ectx.globalAlpha=0.4+0.3*Math.sin(s.tw+=0.03);ectx.fillStyle='#fff';ectx.fillRect(s.x,s.y,s.sz,s.sz);}ectx.globalAlpha=1;
+  if(e.scene===0){
+    // 목성에 도착 - 거대한 가스 행성
+    ectx.fillStyle='#0a0a1a';ectx.fillRect(0,0,W,H);
+    // 목성 (하단에 거대한 곡면)
+    const grad=ectx.createLinearGradient(0,H*0.5,0,H);
+    grad.addColorStop(0,'#c8a050');grad.addColorStop(0.3,'#a08040');grad.addColorStop(0.6,'#d4a060');grad.addColorStop(1,'#8a6830');
+    ectx.fillStyle=grad;ectx.beginPath();ectx.ellipse(W/2,H+80,W*0.8,H*0.5,0,Math.PI,0);ectx.fill();
+    // 목성 줄무늬
+    for(let i=0;i<5;i++){
+      ectx.fillStyle=`rgba(${140+i*15},${80+i*10},${30+i*5},0.3)`;
+      ectx.fillRect(0,H*0.55+i*20,W,8);
+    }
+    // 대적점
+    ectx.fillStyle='rgba(180,60,20,0.5)';ectx.beginPath();ectx.ellipse(W*0.65,H*0.7,35,18,0.2,0,Math.PI*2);ectx.fill();
+    // 우주비행사 접근
+    const px=W/2-11,py=H*0.35-Math.min(e.t*0.15,30);
+    CHARS.astronaut.draw(ectx,px,py,1,Math.floor(e.t/8)%2,35000,false,-2);
+    ectx.font='13px "Press Start 2P",monospace';ectx.fillStyle='#ffcc66';
+    ectx.fillText('드디어 목성에 도착했다!',W/2,40);
+    ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#aaa';
+    if(e.t>150)ectx.fillText('거대한 가스 행성...',W/2,65);
+    if(e.t>250)ectx.fillText('가까이 갈수록 이상한 냄새가...',W/2,85);
+  }else if(e.scene===1){
+    // 가스가 점점 들어옴 - 우주복 안으로 스며듦
+    ectx.fillStyle='#0a0a1a';ectx.fillRect(0,0,W,H);
+    // 목성 표면 배경
+    ectx.fillStyle='#6a5020';ectx.fillRect(0,H*0.65,W,H*0.35);
+    for(let i=0;i<8;i++){
+      ectx.fillStyle=`rgba(${100+Math.random()*60},${70+Math.random()*40},${20+Math.random()*20},0.4)`;
+      ectx.fillRect(i*55,H*0.67,40,6);
+    }
+    // 가스 파티클
+    for(const g of e.gasParticles){
+      ectx.globalAlpha=g.life*0.4;ectx.fillStyle=g.col+g.life*0.5+')';
+      ectx.beginPath();ectx.arc(g.x,g.y,g.sz,0,Math.PI*2);ectx.fill();
+    }
+    ectx.globalAlpha=1;
+    // 녹색 가스 오버레이 (점점 짙어짐)
+    const gasIntensity=Math.min(e.t/400,0.4);
+    ectx.fillStyle=`rgba(60,160,30,${gasIntensity})`;ectx.fillRect(0,0,W,H);
+    // 우주비행사 (고통스러워하는)
+    const shk=e.t>200?Math.sin(e.t*0.5)*(e.t-200)*0.01:0;
+    CHARS.astronaut.draw(ectx,W/2-11+shk,H*0.55,1,Math.floor(e.t/8)%2,35000,true,0);
+    ectx.font='13px "Press Start 2P",monospace';ectx.fillStyle='#88dd44';
+    ectx.fillText('가스가 우주복 안으로..!',W/2,40);
+    ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#aaa';
+    if(e.t>120)ectx.fillText('우주비행사: 크윽... 머리가...',W/2,65);
+    if(e.t>250){ectx.fillStyle='#ff6644';ectx.fillText('우주비행사: 의식이... 흐려진다...',W/2,85);}
+    if(e.t>350){ectx.fillStyle='#ff4444';ectx.font='11px "Press Start 2P",monospace';ectx.fillText('⚠ 독성 가스 중독!',W/2,H-30);}
+  }else if(e.scene===2){
+    // 우주복을 벗는다 → 좀비로 변이
+    ectx.fillStyle='#0a0a1a';ectx.fillRect(0,0,W,H);
+    // 짙은 가스 배경
+    ectx.fillStyle='rgba(30,60,10,0.6)';ectx.fillRect(0,0,W,H);
+    for(const g of e.gasParticles){
+      ectx.globalAlpha=g.life*0.3;ectx.fillStyle=g.col+g.life*0.4+')';
+      ectx.beginPath();ectx.arc(g.x,g.y,g.sz,0,Math.PI*2);ectx.fill();
+    }
+    ectx.globalAlpha=1;
+    const shk=Math.sin(e.t*0.8)*3;
+    if(e.t<120){
+      // 우주복 벗는 장면 (우주비행사가 흔들리면서)
+      ectx.save();ectx.translate(W/2,H/2);ectx.rotate(Math.sin(e.t*0.3)*0.15);
+      CHARS.astronaut.draw(ectx,-11,-16,1,Math.floor(e.t/4)%2,35000,true,0);
+      ectx.restore();
+      ectx.font='13px "Press Start 2P",monospace';ectx.fillStyle='#ff4444';
+      ectx.fillText('크아아아악!!',W/2,40);
+      ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#cc8833';
+      ectx.fillText('(우주복을 찢어낸다)',W/2,65);
+      // 우주복 파편 흩뿌리기
+      if(e.t>60){
+        for(let i=0;i<3;i++){
+          const px=W/2-20+Math.random()*40+shk,py=H/2-10+Math.random()*20;
+          ectx.fillStyle='rgba(200,200,200,'+(0.6-e.t*0.003)+')';
+          ectx.fillRect(px,py,5+Math.random()*8,4+Math.random()*6);
+        }
+      }
+    }else if(e.t<250){
+      // 변이 중 - 몸이 녹색으로 변함
+      const morphProg=Math.min((e.t-120)/130,1);
+      ectx.fillStyle='#0a0a1a';ectx.fillRect(0,0,W,H);
+      ectx.fillStyle=`rgba(30,60,10,0.5)`;ectx.fillRect(0,0,W,H);
+      // 변이 글로우
+      const glowR=40+morphProg*30;
+      ectx.fillStyle=`rgba(80,200,40,${morphProg*0.3})`;
+      ectx.beginPath();ectx.arc(W/2,H/2,glowR,0,Math.PI*2);ectx.fill();
+      // 우주비행사 → 좀비 전환 (알파 블렌딩)
+      if(morphProg<0.5){
+        ectx.globalAlpha=1-morphProg*2;
+        CHARS.astronaut.draw(ectx,W/2-11+shk,H/2-16,1,0,35000,true,0);
+        ectx.globalAlpha=1;
+      }
+      if(morphProg>0.3){
+        ectx.globalAlpha=Math.min(1,(morphProg-0.3)/0.7);
+        CHARS.zombie.draw(ectx,W/2-11+shk,H/2-16,1,Math.floor(e.t/12)%2,35000,true,0);
+        ectx.globalAlpha=1;
+      }
+      ectx.font='13px "Press Start 2P",monospace';ectx.fillStyle='#66cc33';
+      ectx.fillText('으으으으...',W/2,40);
+      if(morphProg>0.5){ectx.fillStyle='#44aa22';ectx.font='10px "Press Start 2P",monospace';ectx.fillText('...몸이 변하고 있다',W/2,65);}
+    }else{
+      // 완전한 좀비
+      ectx.fillStyle='#0a0a1a';ectx.fillRect(0,0,W,H);
+      ectx.fillStyle='rgba(30,60,10,0.4)';ectx.fillRect(0,0,W,H);
+      // 좀비 글로우
+      ectx.fillStyle='rgba(80,200,40,0.2)';ectx.beginPath();ectx.arc(W/2,H/2,50,0,Math.PI*2);ectx.fill();
+      CHARS.zombie.draw(ectx,W/2-11,H/2-16,1,Math.floor(e.t/15)%2,35000,true,0);
+      ectx.font='13px "Press Start 2P",monospace';ectx.fillStyle='#66cc33';
+      ectx.fillText('크르르르...',W/2,40);
+      ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#888';
+      ectx.fillText('우주비행사는 더 이상 없다.',W/2,65);
+      if(e.t>300){ectx.fillStyle='#ff4444';ectx.fillText('남은 건 좀비뿐...',W/2,85);}
+    }
+  }else if(e.scene===3){
+    // 좀비가 천천히 걸어나옴
+    ectx.fillStyle='#0a0a1a';ectx.fillRect(0,0,W,H);
+    ectx.fillStyle='rgba(20,40,10,0.3)';ectx.fillRect(0,0,W,H);
+    // 목성 표면
+    ectx.fillStyle='#3a3010';ectx.fillRect(0,H*0.7,W,H*0.3);
+    // 좀비 워킹
+    const zx=W*0.3+Math.min(e.t*0.3,W*0.4);
+    const wobble=Math.sin(e.t*0.06)*2;
+    CHARS.zombie.draw(ectx,zx,H*0.55+wobble,1,Math.floor(e.t/15)%2,35000,true,0);
+    // 뒤에 우주복 잔해
+    ectx.fillStyle='#888';ectx.fillRect(W*0.25,H*0.6,15,10);
+    ectx.fillStyle='#666';ectx.fillRect(W*0.25+3,H*0.58,10,6);
+    ectx.fillStyle='rgba(100,180,200,0.3)';ectx.fillRect(W*0.25+5,H*0.58,5,4);
+    ectx.font='13px "Press Start 2P",monospace';ectx.fillStyle='#66cc33';
+    if(e.t<150)ectx.fillText('좀비: 크르르르...',W/2,40);
+    else ectx.fillText('좀비: ...배고파.',W/2,40);
+    ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#888';
+    if(e.t>200)ectx.fillText('독성 가스가 모든 것을 바꿔놓았다.',W/2,65);
+    if(e.t>300)ectx.fillText('하지만... 이 몸도 나쁘지 않아.',W/2,85);
+  }else if(e.scene===4){
+    ectx.fillStyle='#0a0a1a';ectx.fillRect(0,0,W,H);
+    ectx.fillStyle='rgba(30,60,10,0.2)';ectx.fillRect(0,0,W,H);
+    // 좀비 캐릭터 전시
+    CHARS.zombie.draw(ectx,W/2-11,H/2-30,1,Math.floor(e.t/15)%2,35000,true,0);
+    ectx.font='18px "Press Start 2P",monospace';ectx.fillStyle='#66cc33';
+    ectx.fillText('🧟 좀비 캐릭터 해금!',W/2,H/2+30);
+    ectx.font='10px "Press Start 2P",monospace';ectx.fillStyle='#aaa';
+    ectx.fillText('가스에 중독된 우주비행사의 최후',W/2,H/2+55);
+  }
+  ectx.textAlign='left';
+}
+
 // ══════════════════════════════════════════════════════
 //  일시정지
 // ══════════════════════════════════════════════════════
@@ -3679,7 +3894,7 @@ function showBattleMenu(){
 function showBattleCharSelect(testMode){
   ov.style.display='flex';
   btl_testMode=!!testMode;
-  const allChars=Object.keys(CHARS).filter(id=>SAVE.hasChar(id)).map(id=>({id,emoji:{human:'🧑',mochi:'🍡',cockroach:'🪳',ice:'❄️',rabbit:'🐰',protein_stick:'🥢',astronaut:'🧑‍🚀',illuminati:'🔺',skeleton:'💀',fish:'🐟',storm:'🌪️'}[id]||'❓',name:CHARS[id].name}));
+  const allChars=Object.keys(CHARS).filter(id=>SAVE.hasChar(id)).map(id=>({id,emoji:{human:'🧑',mochi:'🍡',cockroach:'🪳',ice:'❄️',rabbit:'🐰',protein_stick:'🥢',astronaut:'🧑‍🚀',illuminati:'🔺',skeleton:'💀',fish:'🐟',storm:'🌪️',zombie:'🧟'}[id]||'❓',name:CHARS[id].name}));
   const skinVars=['btlP1Skin','btlP2Skin','btlP3Skin','btlP4Skin'];
   const getSkin=(i)=>[btlP1Skin,btlP2Skin,btlP3Skin,btlP4Skin][i];
   const makeSkinRow=(charId,skinVar)=>{
@@ -3735,6 +3950,7 @@ const BTL_STATS={
   skeleton:{hp:3,kb:10,stun:25,cooldown:25,atkType:'bone',autoFire:true,boneSpeed:10,boneGravity:0.25,boneRange:350,desc:'뼈 투척 (포물선)'},
   fish:{hp:3,kb:8,stun:20,cooldown:270,atkType:'water_stream',autoFire:true,streamRange:190,streamDuration:180,streamTickRate:3,desc:'물기둥 발사 (3초간 지속)'},
   illuminati:{hp:3,kb:16,stun:30,cooldown:60,atkType:'eye_beam',autoFire:true,beamSpeed:16,beamRange:400,blindDuration:120,desc:'빛의 눈 (실명 2초)'},
+  zombie:{hp:3,kb:15,stun:30,cooldown:30,atkType:'punch',autoFire:true,desc:'좀비 (능력 미정)'},
   storm:{hp:3,kb:18,stun:40,cooldown:90,atkType:'whirlwind',autoFire:true,
     wwSpeed:10,wwRange:300,wwZoneDur:120,wwZoneRadius:60,wwZoneTickRate:5,
     wwPullStrength:9,wwSlowDur:60,wwZoneKb:6,
@@ -5025,7 +5241,7 @@ function showOnlineLobby(){
   const info=onlineRoomInfo;
   const isHost=onlineRole==='host';
   const pColors=['#7ef','#f88','#8f8','#fb4'];
-  const _emojis={human:'🧑',mochi:'🍡',cockroach:'🪳',ice:'❄️',rabbit:'🐰',protein_stick:'🥢',astronaut:'🧑‍🚀',illuminati:'🔺',skeleton:'💀',fish:'🐟',storm:'🌪️'};
+  const _emojis={human:'🧑',mochi:'🍡',cockroach:'🪳',ice:'❄️',rabbit:'🐰',protein_stick:'🥢',astronaut:'🧑‍🚀',illuminati:'🔺',skeleton:'💀',fish:'🐟',storm:'🌪️',zombie:'🧟'};
   const allChars=Object.keys(CHARS).map(id=>({id,emoji:_emojis[id]||'❓',name:CHARS[id].name}));
   const charEmojis={};const charNames={};for(const c of allChars){charEmojis[c.id]=c.emoji;charNames[c.id]=c.name;}
   const myPlayer=info.players.find(p=>p.idx===onlinePlayerIdx);
