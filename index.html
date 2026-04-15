@@ -123,10 +123,9 @@ const SAVE={
   getUnlocksSnapshot(){ return {charsUnlocked:this.charsUnlocked, skinsUnlocked:this.skinsUnlocked, stagesCleared:this.stagesCleared}; },
   applyServerUnlocks(u){
     if(!u)return;
-    const uniq=(a,b)=>Array.from(new Set([...(a||[]),...(b||[])]));
-    localStorage.setItem('sc_chars',JSON.stringify(uniq(this.charsUnlocked,u.charsUnlocked)));
-    localStorage.setItem('sc_skins',JSON.stringify(uniq(this.skinsUnlocked,u.skinsUnlocked)));
-    localStorage.setItem('sc_stages',JSON.stringify(uniq(this.stagesCleared,u.stagesCleared)));
+    localStorage.setItem('sc_chars',JSON.stringify(u.charsUnlocked||['human']));
+    localStorage.setItem('sc_skins',JSON.stringify(u.skinsUnlocked||[]));
+    localStorage.setItem('sc_stages',JSON.stringify(u.stagesCleared||[]));
     if(typeof refreshAccountUI==='function')refreshAccountUI();
   },
   _syncTimer:null,
@@ -178,8 +177,6 @@ function handleAuthMessage(msg){
   if(msg.t==='auth_ok'){
     SAVE.account={user:msg.user,token:msg.token};
     SAVE.applyServerUnlocks(msg.unlocks);
-    // 로컬에 서버보다 더 많은 항목이 있으면 다시 푸시
-    authWs.send(JSON.stringify({t:'save_sync',token:msg.token,unlocks:SAVE.getUnlocksSnapshot()}));
     hideLoginModal();
     if(typeof refreshAccountUI==='function')refreshAccountUI();
     if(_authPending&&_authPending.onOk)_authPending.onOk();
@@ -203,7 +200,6 @@ function handleAuthMessage(msg){
 function doAuth(kind,user,pw){
   _authPending={kind};
   const payload={t:kind==='register'?'auth_register':'auth_login',user,pw};
-  if(kind==='register')payload.unlocks=SAVE.getUnlocksSnapshot();
   openAuthWs(()=>{
     try{authWs.send(JSON.stringify(payload));}
     catch(e){const el=document.getElementById('login-err');if(el){el.textContent='전송 실패';el.style.display='block';}}
@@ -272,6 +268,9 @@ function refreshAccountUI(){
 
 function doLogout(){
   SAVE.logout();
+  localStorage.setItem('sc_chars',JSON.stringify(['human']));
+  localStorage.setItem('sc_skins',JSON.stringify([]));
+  localStorage.setItem('sc_stages',JSON.stringify([]));
   if(authWs){try{authWs.close();}catch(e){}authWs=null;}
   refreshAccountUI();
 }
@@ -280,7 +279,7 @@ function doLogout(){
 function tryResumeSession(){
   if(!SAVE.isLoggedIn())return;
   openAuthWs(()=>{
-    try{authWs.send(JSON.stringify({t:'save_sync',token:SAVE.account.token,unlocks:SAVE.getUnlocksSnapshot()}));}catch(e){}
+    try{authWs.send(JSON.stringify({t:'save_sync',token:SAVE.account.token,unlocks:{charsUnlocked:[],skinsUnlocked:[],stagesCleared:[]}}));}catch(e){}
   });
 }
 
