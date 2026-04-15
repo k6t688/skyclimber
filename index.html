@@ -134,12 +134,19 @@ const SAVE={
     if(this._syncTimer)return;
     this._syncTimer=setTimeout(()=>{
       this._syncTimer=null;
-      try{
-        if(typeof authWs!=='undefined'&&authWs&&authWs.readyState===1){
-          authWs.send(JSON.stringify({t:'save_sync', token:this.account.token, unlocks:this.getUnlocksSnapshot()}));
-        }
-      }catch(e){}
-    },2000);
+      this._flushSync();
+    },300);
+  },
+  _flushSync(){
+    if(!this.isLoggedIn())return;
+    const payload=JSON.stringify({t:'save_sync', token:this.account.token, unlocks:this.getUnlocksSnapshot()});
+    const trySend=()=>{try{authWs.send(payload);}catch(e){}};
+    if(typeof authWs!=='undefined'&&authWs&&authWs.readyState===1){
+      trySend();
+    }else{
+      // authWs 끊김 → 재연결 후 전송
+      if(typeof openAuthWs==='function')openAuthWs(trySend);
+    }
   },
 };
 const SKINS={
@@ -178,6 +185,7 @@ function handleAuthMessage(msg){
     SAVE.account={user:msg.user,token:msg.token};
     SAVE.applyServerUnlocks(msg.unlocks);
     hideLoginModal();
+    showMainMenu();
     if(typeof refreshAccountUI==='function')refreshAccountUI();
     if(_authPending&&_authPending.onOk)_authPending.onOk();
     _authPending=null;
@@ -214,7 +222,7 @@ function showLoginModal(initialMode){
   if(!el){
     el=document.createElement('div');
     el.id='login-modal';
-    el.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:200;';
+    el.style.cssText='position:fixed;inset:0;background:#0a0a14;display:flex;align-items:center;justify-content:center;z-index:200;';
     el.innerHTML=`
       <div style="background:#1a1a2a;border:2px solid #555599;border-radius:8px;padding:20px;min-width:280px;font-family:monospace;color:#eee;">
         <h2 style="margin:0 0 12px;font-size:16px;text-align:center">계정</h2>
@@ -240,7 +248,7 @@ function showLoginModal(initialMode){
       if(!u||!p){const er=document.getElementById('login-err');er.textContent='아이디/비밀번호를 입력하세요';er.style.display='block';return;}
       doAuth('register',u,p);
     };
-    el.querySelector('#login-btn-guest').onclick=()=>hideLoginModal();
+    el.querySelector('#login-btn-guest').onclick=()=>{hideLoginModal();showMainMenu();};
     pEl.addEventListener('keydown',ev=>{if(ev.key==='Enter')el.querySelector('#login-btn-login').click();});
   }
   const er=el.querySelector('#login-err');er.style.display='none';er.textContent='';
@@ -282,6 +290,12 @@ function tryResumeSession(){
     try{authWs.send(JSON.stringify({t:'save_sync',token:SAVE.account.token,unlocks:{charsUnlocked:[],skinsUnlocked:[],stagesCleared:[]}}));}catch(e){}
   });
 }
+
+// 페이지 이탈 시 대기 중인 sync를 즉시 전송 (해금 직후 탭 닫아도 저장되도록)
+window.addEventListener('beforeunload',()=>{
+  if(SAVE._syncTimer){clearTimeout(SAVE._syncTimer);SAVE._syncTimer=null;}
+  SAVE._flushSync();
+});
 
 // ══════════════════════════════════════════════════════
 //  사운드 시스템 (Web Audio API)
@@ -6134,8 +6148,12 @@ function btlTriggerAttackByAngle(p,angle){
 // ══════════════════════════════════════════════════════
 //  시작
 // ══════════════════════════════════════════════════════
-showMainMenu();
-tryResumeSession();
+if(SAVE.isLoggedIn()){
+  showMainMenu();
+  tryResumeSession();
+}else{
+  showLoginModal();
+}
 </script>
 </body>
 </html>
