@@ -217,47 +217,296 @@ function doAuth(kind,user,pw){
   });
 }
 
+let _loginAnimOn=false;
 function showLoginModal(initialMode){
   let el=document.getElementById('login-modal');
   if(!el){
     el=document.createElement('div');
     el.id='login-modal';
-    el.style.cssText='position:fixed;inset:0;background:#0a0a14;display:flex;align-items:center;justify-content:center;z-index:200;';
+    el.style.cssText='position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center;z-index:200;font-family:"Press Start 2P",monospace;overflow:hidden;';
     el.innerHTML=`
-      <div style="background:#1a1a2a;border:2px solid #555599;border-radius:8px;padding:20px;min-width:280px;font-family:monospace;color:#eee;">
-        <h2 style="margin:0 0 12px;font-size:16px;text-align:center">계정</h2>
-        <div style="margin-bottom:8px"><input id="login-user" placeholder="아이디 (2~16자)" maxlength="16" style="width:100%;box-sizing:border-box;padding:8px;background:#0e0e18;border:1px solid #444466;color:#fff;font-family:monospace"></div>
-        <div style="margin-bottom:8px"><input id="login-pw" type="password" placeholder="비밀번호 (4자 이상)" maxlength="64" style="width:100%;box-sizing:border-box;padding:8px;background:#0e0e18;border:1px solid #444466;color:#fff;font-family:monospace"></div>
-        <div id="login-err" style="display:none;color:#f88;font-size:11px;margin-bottom:8px;text-align:center"></div>
-        <div style="display:flex;gap:6px;margin-bottom:6px">
-          <button class="btn-sm" id="login-btn-login" style="flex:1">로그인</button>
-          <button class="btn-sm" id="login-btn-register" style="flex:1;background:#7bb07b;border-color:#4a804a">가입</button>
+      <canvas id="login-bg" style="position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;"></canvas>
+      <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:0;padding:16px;max-height:100vh;overflow-y:auto;">
+        <!-- 게임 타이틀 -->
+        <div style="text-align:center;margin-bottom:6px;">
+          <div style="font-size:clamp(10px,3vw,14px);color:#7be0ff;letter-spacing:6px;text-shadow:0 0 12px rgba(100,200,255,0.6);margin-bottom:6px;">★  ★  ★</div>
+          <h1 id="login-title" style="font-size:clamp(32px,9vw,56px);color:#ffe066;text-shadow:0 0 20px rgba(255,224,102,0.5),0 4px 0 #b8860b,0 5px 0 #8a6508,0 6px 8px rgba(0,0,0,0.8);margin:0;letter-spacing:6px;line-height:1;">SKY</h1>
+          <h1 style="font-size:clamp(22px,6vw,38px);color:#ff8844;text-shadow:0 0 16px rgba(255,136,68,0.4),0 3px 0 #aa4400,0 4px 6px rgba(0,0,0,0.8);margin:2px 0 0;letter-spacing:10px;line-height:1;">CLIMBER</h1>
+          <div style="margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px;">
+            <div style="width:40px;height:2px;background:linear-gradient(to right,transparent,#ffe066);"></div>
+            <p style="font-size:clamp(7px,2vw,9px);color:#aad4ff;letter-spacing:3px;margin:0;text-shadow:0 0 8px rgba(120,180,255,0.5);">REACH THE STARS</p>
+            <div style="width:40px;height:2px;background:linear-gradient(to left,transparent,#ffe066);"></div>
+          </div>
         </div>
-        <button class="btn-sm" id="login-btn-guest" style="width:100%;background:#666;border-color:#333;color:#ccc;font-size:11px">게스트로 계속</button>
+        <!-- 게임 프리뷰 -->
+        <canvas id="login-preview" width="320" height="140" style="image-rendering:pixelated;border:3px solid rgba(255,224,102,0.4);border-radius:2px;background:#06061a;width:320px;height:140px;box-shadow:0 0 20px rgba(255,224,102,0.1),inset 0 0 30px rgba(0,0,0,0.5);margin:10px 0;"></canvas>
+        <!-- 로그인 폼 -->
+        <div style="background:rgba(10,10,30,0.85);border:3px solid rgba(255,224,102,0.35);border-radius:3px;padding:16px 20px 12px;display:flex;flex-direction:column;gap:9px;min-width:300px;max-width:340px;box-shadow:0 0 30px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,224,102,0.1);backdrop-filter:blur(4px);">
+          <div style="font-size:9px;color:#ffe066;text-align:center;letter-spacing:2px;text-shadow:0 0 8px rgba(255,224,102,0.4);margin-bottom:2px;">▸ PRESS START ◂</div>
+          <div style="position:relative;">
+            <div style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:10px;color:#556;pointer-events:none;">👤</div>
+            <input id="login-user" placeholder="PILOT ID" maxlength="16" autocomplete="off" style="padding:10px 10px 10px 32px;width:100%;background:rgba(8,8,20,0.9);border:2px solid #334;color:#ddeeff;font-family:'Press Start 2P',monospace;font-size:10px;outline:none;letter-spacing:1px;border-radius:2px;transition:border-color 0.2s;" onfocus="this.style.borderColor='#ffe066'" onblur="this.style.borderColor='#334'">
+          </div>
+          <div style="position:relative;">
+            <div style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:10px;color:#556;pointer-events:none;">🔑</div>
+            <input id="login-pw" type="password" placeholder="ACCESS CODE" maxlength="64" style="padding:10px 10px 10px 32px;width:100%;background:rgba(8,8,20,0.9);border:2px solid #334;color:#ddeeff;font-family:'Press Start 2P',monospace;font-size:10px;outline:none;letter-spacing:1px;border-radius:2px;transition:border-color 0.2s;" onfocus="this.style.borderColor='#ffe066'" onblur="this.style.borderColor='#334'">
+          </div>
+          <div id="login-err" style="display:none;color:#ff6666;font-size:8px;text-align:center;text-shadow:0 0 6px rgba(255,80,80,0.3);line-height:1.6;padding:2px 0;"></div>
+          <div style="display:flex;gap:8px;margin-top:2px;">
+            <button class="btn" id="login-btn-login" style="flex:1;margin:0;padding:11px 6px;font-size:11px;letter-spacing:1px;background:linear-gradient(180deg,#ffe066,#ddaa22);border:2px solid #b8860b;color:#1a1000;border-radius:2px;box-shadow:0 2px 8px rgba(255,224,102,0.3);">LOGIN</button>
+            <button class="btn" id="login-btn-register" style="flex:1;margin:0;padding:11px 6px;font-size:11px;letter-spacing:1px;background:linear-gradient(180deg,#66ddaa,#33aa66);border:2px solid #228855;color:#002a10;border-radius:2px;box-shadow:0 2px 8px rgba(100,220,150,0.2);">JOIN</button>
+          </div>
+          <button id="login-btn-guest" style="background:none;border:1px solid transparent;color:#667;font-family:'Press Start 2P',monospace;font-size:8px;cursor:pointer;padding:6px 4px 2px;letter-spacing:2px;transition:all 0.2s;border-radius:2px;">⟫ GUEST PLAY ⟪</button>
+        </div>
+        <p style="font-size:7px;color:#334;letter-spacing:2px;margin:8px 0 0;text-align:center;">© 2026 SKYCLIMBER</p>
       </div>
     `;
     document.body.appendChild(el);
     const uEl=el.querySelector('#login-user'),pEl=el.querySelector('#login-pw');
     el.querySelector('#login-btn-login').onclick=()=>{
       const u=uEl.value.trim(),p=pEl.value;
-      if(!u||!p){const er=document.getElementById('login-err');er.textContent='아이디/비밀번호를 입력하세요';er.style.display='block';return;}
+      if(!u||!p){const er=document.getElementById('login-err');er.textContent='ID/PW를 입력하세요';er.style.display='block';return;}
       doAuth('login',u,p);
     };
     el.querySelector('#login-btn-register').onclick=()=>{
       const u=uEl.value.trim(),p=pEl.value;
-      if(!u||!p){const er=document.getElementById('login-err');er.textContent='아이디/비밀번호를 입력하세요';er.style.display='block';return;}
+      if(!u||!p){const er=document.getElementById('login-err');er.textContent='ID/PW를 입력하세요';er.style.display='block';return;}
       doAuth('register',u,p);
     };
     el.querySelector('#login-btn-guest').onclick=()=>{hideLoginModal();showMainMenu();};
+    el.querySelector('#login-btn-guest').onmouseover=function(){this.style.color='#ffe066';this.style.borderColor='rgba(255,224,102,0.3)';};
+    el.querySelector('#login-btn-guest').onmouseout=function(){this.style.color='#667';this.style.borderColor='transparent';};
     pEl.addEventListener('keydown',ev=>{if(ev.key==='Enter')el.querySelector('#login-btn-login').click();});
+    uEl.addEventListener('keydown',ev=>{if(ev.key==='Enter')pEl.focus();});
   }
   const er=el.querySelector('#login-err');er.style.display='none';er.textContent='';
   el.style.display='flex';
+  _startLoginAnim();
   setTimeout(()=>el.querySelector('#login-user').focus(),30);
 }
 function hideLoginModal(){
   const el=document.getElementById('login-modal');
   if(el)el.style.display='none';
+  _loginAnimOn=false;
+}
+function _startLoginAnim(){
+  if(_loginAnimOn)return;
+  const bg=document.getElementById('login-bg');
+  const pv=document.getElementById('login-preview');
+  if(!bg||!pv)return;
+  _loginAnimOn=true;
+  const bgCtx=bg.getContext('2d');
+  const pctx=pv.getContext('2d');
+  function resize(){bg.width=bg.clientWidth;bg.height=bg.clientHeight;}
+  resize();
+  if(!_startLoginAnim._bound){window.addEventListener('resize',()=>{if(_loginAnimOn)resize();});_startLoginAnim._bound=true;}
+  // 배경 별 생성
+  const stars=[];
+  for(let i=0;i<200;i++)stars.push({x:Math.random(),y:Math.random(),s:Math.random()<0.15?2:1,tw:Math.random()*7,sp:0.3+Math.random()*1.8,vy:0.02+Math.random()*0.12,col:Math.random()<0.1?1:Math.random()<0.05?2:0});
+  // 먼 별 (매우 작고 느리게)
+  const farStars=[];
+  for(let i=0;i<80;i++)farStars.push({x:Math.random(),y:Math.random(),tw:Math.random()*10,sp:0.1+Math.random()*0.5});
+  // 유성 타이머
+  let meteorTimer=0;
+  const meteors=[];
+  let t=0;
+  // 타이틀 글로우 애니메이션
+  const titleEl=document.getElementById('login-title');
+  function frame(){
+    if(!_loginAnimOn)return;
+    t++;
+    const bw=bg.width,bh=bg.height;
+
+    // ─── 깊은 우주 배경 ───
+    const g=bgCtx.createRadialGradient(bw*0.3,bh*0.2,0,bw*0.5,bh*0.5,bw*0.9);
+    g.addColorStop(0,'#0c0828');g.addColorStop(0.3,'#080620');g.addColorStop(0.6,'#050412');g.addColorStop(1,'#010108');
+    bgCtx.fillStyle=g;bgCtx.fillRect(0,0,bw,bh);
+
+    // ─── 성운 (nebula glow) ───
+    const nebAlpha=0.04+Math.sin(t*0.008)*0.02;
+    bgCtx.save();bgCtx.globalAlpha=nebAlpha;
+    const n1=bgCtx.createRadialGradient(bw*0.2,bh*0.3,0,bw*0.2,bh*0.3,bw*0.35);
+    n1.addColorStop(0,'#4a20aa');n1.addColorStop(0.5,'#2a1080');n1.addColorStop(1,'transparent');
+    bgCtx.fillStyle=n1;bgCtx.fillRect(0,0,bw,bh);
+    const n2=bgCtx.createRadialGradient(bw*0.75,bh*0.6,0,bw*0.75,bh*0.6,bw*0.3);
+    n2.addColorStop(0,'#20408a');n2.addColorStop(0.5,'#102060');n2.addColorStop(1,'transparent');
+    bgCtx.fillStyle=n2;bgCtx.fillRect(0,0,bw,bh);
+    bgCtx.restore();
+
+    // ─── 먼 별들 (아주 작고 은은) ───
+    for(const s of farStars){
+      const br=0.15+Math.sin(t*0.02*s.sp+s.tw)*0.15;
+      bgCtx.fillStyle=`rgba(180,200,255,${br})`;
+      bgCtx.fillRect(Math.floor(s.x*bw),Math.floor(s.y*bh),1,1);
+    }
+
+    // ─── 큰 행성 1: 가스 자이언트 (오른쪽 아래, 반만 보이는) ───
+    const p1x=bw*0.88,p1y=bh*0.82,p1r=Math.min(bw,bh)*0.22;
+    bgCtx.save();
+    // 행성 몸체
+    const pg=bgCtx.createRadialGradient(p1x-p1r*0.3,p1y-p1r*0.3,p1r*0.1,p1x,p1y,p1r);
+    pg.addColorStop(0,'#6a4aaa');pg.addColorStop(0.4,'#4a2a7a');pg.addColorStop(0.7,'#2a1a5a');pg.addColorStop(1,'#0a0a2a');
+    bgCtx.fillStyle=pg;bgCtx.beginPath();bgCtx.arc(p1x,p1y,p1r,0,Math.PI*2);bgCtx.fill();
+    // 행성 고리 밴드
+    bgCtx.globalAlpha=0.25;
+    bgCtx.fillStyle='#8a6acc';bgCtx.fillRect(p1x-p1r,p1y-p1r*0.08,p1r*2,p1r*0.04);
+    bgCtx.fillStyle='#aa8aee';bgCtx.fillRect(p1x-p1r,p1y+p1r*0.15,p1r*2,p1r*0.03);
+    bgCtx.fillStyle='#6a4a99';bgCtx.fillRect(p1x-p1r,p1y+p1r*0.35,p1r*2,p1r*0.05);
+    bgCtx.globalAlpha=1;
+    // 행성 대기 글로우
+    bgCtx.globalAlpha=0.15;
+    const atm=bgCtx.createRadialGradient(p1x,p1y,p1r*0.9,p1x,p1y,p1r*1.15);
+    atm.addColorStop(0,'transparent');atm.addColorStop(0.5,'#6a5aff');atm.addColorStop(1,'transparent');
+    bgCtx.fillStyle=atm;bgCtx.fillRect(p1x-p1r*1.3,p1y-p1r*1.3,p1r*2.6,p1r*2.6);
+    bgCtx.restore();
+
+    // ─── 링 행성 (왼쪽 상단, 토성 스타일) ───
+    const p2x=bw*0.12,p2y=bh*0.15,p2r=Math.min(bw,bh)*0.08;
+    bgCtx.save();
+    // 행성
+    const pg2=bgCtx.createRadialGradient(p2x-p2r*0.3,p2y-p2r*0.3,0,p2x,p2y,p2r);
+    pg2.addColorStop(0,'#ddaa55');pg2.addColorStop(0.5,'#bb7733');pg2.addColorStop(1,'#664422');
+    bgCtx.fillStyle=pg2;bgCtx.beginPath();bgCtx.arc(p2x,p2y,p2r,0,Math.PI*2);bgCtx.fill();
+    // 밴드
+    bgCtx.globalAlpha=0.3;
+    bgCtx.fillStyle='#cc9944';bgCtx.fillRect(p2x-p2r,p2y-p2r*0.1,p2r*2,p2r*0.08);
+    bgCtx.fillStyle='#aa7733';bgCtx.fillRect(p2x-p2r,p2y+p2r*0.2,p2r*2,p2r*0.06);
+    bgCtx.globalAlpha=1;
+    // 링
+    bgCtx.strokeStyle='rgba(220,180,120,0.35)';bgCtx.lineWidth=2;
+    bgCtx.beginPath();bgCtx.ellipse(p2x,p2y,p2r*1.9,p2r*0.35,0.2,0,Math.PI*2);bgCtx.stroke();
+    bgCtx.strokeStyle='rgba(200,160,100,0.2)';bgCtx.lineWidth=3;
+    bgCtx.beginPath();bgCtx.ellipse(p2x,p2y,p2r*2.3,p2r*0.45,0.2,0,Math.PI*2);bgCtx.stroke();
+    bgCtx.restore();
+
+    // ─── 작은 행성 (빨간 화성풍, 오른쪽 상단) ───
+    const p3x=bw*0.78,p3y=bh*0.1,p3r=Math.min(bw,bh)*0.035;
+    bgCtx.save();
+    const pg3=bgCtx.createRadialGradient(p3x-p3r*0.3,p3y-p3r*0.3,0,p3x,p3y,p3r);
+    pg3.addColorStop(0,'#dd6644');pg3.addColorStop(0.6,'#aa4422');pg3.addColorStop(1,'#662211');
+    bgCtx.fillStyle=pg3;bgCtx.beginPath();bgCtx.arc(p3x,p3y,p3r,0,Math.PI*2);bgCtx.fill();
+    bgCtx.restore();
+
+    // ─── 파란 지구풍 행성 (좌하단, 작게) ───
+    const p4x=bw*0.08,p4y=bh*0.72,p4r=Math.min(bw,bh)*0.045;
+    bgCtx.save();
+    const pg4=bgCtx.createRadialGradient(p4x-p4r*0.2,p4y-p4r*0.2,0,p4x,p4y,p4r);
+    pg4.addColorStop(0,'#55aadd');pg4.addColorStop(0.5,'#3388bb');pg4.addColorStop(1,'#115577');
+    bgCtx.fillStyle=pg4;bgCtx.beginPath();bgCtx.arc(p4x,p4y,p4r,0,Math.PI*2);bgCtx.fill();
+    // 대륙 표현
+    bgCtx.globalAlpha=0.3;bgCtx.fillStyle='#44bb66';
+    bgCtx.beginPath();bgCtx.arc(p4x-p4r*0.2,p4y-p4r*0.1,p4r*0.35,0,Math.PI*2);bgCtx.fill();
+    bgCtx.beginPath();bgCtx.arc(p4x+p4r*0.3,p4y+p4r*0.2,p4r*0.25,0,Math.PI*2);bgCtx.fill();
+    bgCtx.restore();
+
+    // ─── 별들 (반짝임 + 스크롤) ───
+    for(const s of stars){
+      s.y+=s.vy/bh;if(s.y>1.02){s.y=-0.02;s.x=Math.random();}
+      const br=0.3+Math.sin(t*0.04*s.sp+s.tw)*0.6;
+      const a=Math.max(0.08,br);
+      if(s.col===1){bgCtx.fillStyle=`rgba(255,200,150,${a})`;}
+      else if(s.col===2){bgCtx.fillStyle=`rgba(150,200,255,${a})`;}
+      else{bgCtx.fillStyle=`rgba(255,255,255,${a})`;}
+      bgCtx.fillRect(Math.floor(s.x*bw),Math.floor(s.y*bh),s.s,s.s);
+    }
+
+    // ─── 유성 ───
+    meteorTimer++;
+    if(meteorTimer>180+Math.random()*200){
+      meteorTimer=0;
+      meteors.push({x:Math.random()*bw*0.6,y:-10,vx:3+Math.random()*4,vy:2+Math.random()*3,life:40+Math.random()*30});
+    }
+    for(let i=meteors.length-1;i>=0;i--){
+      const m=meteors[i];m.x+=m.vx;m.y+=m.vy;m.life--;
+      if(m.life<=0){meteors.splice(i,1);continue;}
+      const a=Math.min(1,m.life/15);
+      bgCtx.fillStyle=`rgba(255,255,255,${a})`;bgCtx.fillRect(m.x,m.y,2,2);
+      bgCtx.fillStyle=`rgba(255,240,180,${a*0.6})`;bgCtx.fillRect(m.x-m.vx,m.y-m.vy,2,1);
+      bgCtx.fillStyle=`rgba(255,200,100,${a*0.3})`;bgCtx.fillRect(m.x-m.vx*2,m.y-m.vy*2,3,1);
+      bgCtx.fillStyle=`rgba(255,180,80,${a*0.15})`;bgCtx.fillRect(m.x-m.vx*3.5,m.y-m.vy*3.5,4,1);
+    }
+
+    // ─── 타이틀 글로우 펄스 ───
+    if(titleEl){
+      const glow=12+Math.sin(t*0.04)*8;
+      titleEl.style.textShadow=`0 0 ${glow}px rgba(255,224,102,0.5),0 4px 0 #b8860b,0 5px 0 #8a6508,0 6px 8px rgba(0,0,0,0.8)`;
+    }
+
+    // ─── 미니 게임 프리뷰 캔버스 ───
+    pctx.fillStyle='#06061a';pctx.fillRect(0,0,320,140);
+    // 배경 별
+    for(let i=0;i<35;i++){
+      const x=(i*41+Math.floor(t*0.5))%320;
+      const y=(i*19)%110;
+      const sb=0.3+Math.sin(t*0.05+i)*0.4;
+      pctx.fillStyle=`rgba(255,255,255,${sb})`;
+      pctx.fillRect(x,y,1,1);
+    }
+    // 미니 행성
+    pctx.fillStyle='#3a2a6a';pctx.beginPath();pctx.arc(280,25,16,0,Math.PI*2);pctx.fill();
+    pctx.fillStyle='#5a4a9a';pctx.beginPath();pctx.arc(278,23,13,0,Math.PI*2);pctx.fill();
+    pctx.strokeStyle='rgba(140,120,200,0.3)';pctx.lineWidth=1;
+    pctx.beginPath();pctx.ellipse(280,25,24,6,0.2,0,Math.PI*2);pctx.stroke();
+    // 작은 파란 행성
+    pctx.fillStyle='#4488cc';pctx.beginPath();pctx.arc(45,20,8,0,Math.PI*2);pctx.fill();
+    pctx.fillStyle='#55aadd';pctx.beginPath();pctx.arc(43,18,6,0,Math.PI*2);pctx.fill();
+    // 픽셀 발판들 (우주 스타일)
+    function plat(x,y,w){
+      pctx.fillStyle='#556688';pctx.fillRect(x,y,w,2);
+      pctx.fillStyle='#334466';pctx.fillRect(x,y+2,w,2);
+      pctx.fillStyle='#7799bb';pctx.fillRect(x+1,y,w-2,1);
+      // 양 끝 발광
+      pctx.fillStyle='rgba(100,200,255,0.4)';pctx.fillRect(x,y-1,2,1);pctx.fillRect(x+w-2,y-1,2,1);
+    }
+    plat(25,110,55);plat(105,88,52);plat(195,66,55);plat(265,48,40);
+    // 점프 궤적 (빛나는 점선)
+    pctx.fillStyle='rgba(255,224,102,0.3)';
+    for(let i=0;i<6;i++){pctx.fillRect(88+i*7,106-i*3,2,2);}
+    for(let i=0;i<6;i++){pctx.fillRect(168+i*7,84-i*3,2,2);}
+    for(let i=0;i<5;i++){pctx.fillRect(255+i*5,62-i*3,2,2);}
+    // 캐릭터 (발판 위 우주비행사)
+    const cx2=275,bob2=Math.floor(Math.sin(t*0.1)*1.5);
+    const cy2=34+bob2;
+    // 헬멧
+    pctx.fillStyle='#eee';pctx.fillRect(cx2,cy2,8,7);
+    pctx.fillStyle='#ddd';pctx.fillRect(cx2+1,cy2,6,1);
+    // 바이저
+    pctx.fillStyle='#2244aa';pctx.fillRect(cx2+1,cy2+2,6,3);
+    pctx.fillStyle='#55aaff';pctx.fillRect(cx2+1,cy2+2,6,1);
+    pctx.fillStyle='#fff';pctx.fillRect(cx2+5,cy2+3,1,1);
+    // 몸통
+    pctx.fillStyle='#ddd';pctx.fillRect(cx2+1,cy2+7,6,4);
+    pctx.fillStyle='#ffe066';pctx.fillRect(cx2+3,cy2+8,2,1);
+    // 백팩
+    pctx.fillStyle='#777';pctx.fillRect(cx2,cy2+8,1,3);pctx.fillRect(cx2+7,cy2+8,1,3);
+    // 다리
+    pctx.fillStyle='#bbb';pctx.fillRect(cx2+1,cy2+11,2,2);pctx.fillRect(cx2+5,cy2+11,2,2);
+    // 제트팩 불꽃 (반짝)
+    if(Math.floor(t/8)%2===0){
+      pctx.fillStyle='#ff8844';pctx.fillRect(cx2,cy2+11,1,2);pctx.fillRect(cx2+7,cy2+11,1,2);
+      pctx.fillStyle='#ffcc44';pctx.fillRect(cx2,cy2+13,1,1);pctx.fillRect(cx2+7,cy2+13,1,1);
+    }
+    // 위쪽 화살표 (올라가는 느낌)
+    if(Math.floor(t/12)%2===0){
+      pctx.fillStyle='#ffe066';
+      pctx.fillRect(cx2+3,cy2-6,2,4);
+      pctx.fillRect(cx2+2,cy2-5,4,1);
+      pctx.fillRect(cx2+1,cy2-4,6,1);
+    }
+    // 높이 텍스트
+    const hVal=Math.floor(t*0.5)%9999;
+    pctx.fillStyle='rgba(255,255,255,0.6)';pctx.font='7px "Press Start 2P"';
+    pctx.fillText(hVal+'m',8,130);
+    // "점프해서 올라가자" 느낌 화살표
+    pctx.fillStyle='rgba(255,224,102,0.15)';
+    for(let i=0;i<4;i++){
+      const ay=125-i*18-((t*0.5)%18);
+      if(ay>5&&ay<130){pctx.fillRect(155,ay,3,6);pctx.fillRect(153,ay+2,7,2);}
+    }
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
 }
 
 function refreshAccountUI(){
