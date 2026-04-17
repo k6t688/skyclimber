@@ -6422,25 +6422,39 @@ function btlDrawPlayer(p){
 }
 
 function btlDrawHP(){
+  // P1/P2 상단 행 (20px)
   ctx.font='bold 20px "Press Start 2P",monospace';
-  // P1 (좌측), P2 (우측) 상단 행
   const p1=btl.players[0],p2=btl.players[1];
   ctx.fillStyle=p1.color;ctx.textAlign='left';ctx.fillText(p1.label,10,32);
   for(let i=0;i<p1.maxHp;i++){ctx.fillStyle=i<p1.hp?'#ff3333':'#333';ctx.fillText('♥',56+i*26,32);}
-  // P1 특수 쿨다운 표시 (내 화면 — 온라인 게스트는 players[onlinePlayerIdx])
+  ctx.fillStyle=p2.color;ctx.textAlign='right';ctx.fillText(p2.label,W-10,32);
+  for(let i=0;i<p2.maxHp;i++){ctx.fillStyle=i<p2.hp?'#ff3333':'#333';ctx.fillText('♥',W-56-i*26,32);}
+  // P3/P4 두 번째 행 (3P/4P일 때)
+  let barY=44;
+  if(btl.players.length>2){
+    ctx.font='bold 18px "Press Start 2P",monospace';
+    const p3=btl.players[2];
+    ctx.fillStyle=p3.color;ctx.textAlign='left';ctx.fillText(p3.label,10,56);
+    for(let i=0;i<p3.maxHp;i++){ctx.fillStyle=i<p3.hp?'#ff3333':'#333';ctx.fillText('♥',52+i*24,56);}
+    if(btl.players.length>3){
+      const p4=btl.players[3];
+      ctx.fillStyle=p4.color;ctx.textAlign='right';ctx.fillText(p4.label,W-10,56);
+      for(let i=0;i<p4.maxHp;i++){ctx.fillStyle=i<p4.hp?'#ff3333':'#333';ctx.fillText('♥',W-52-i*24,56);}
+    }
+    barY=70; // P3/P4 행 아래로 이동
+  }
+  // 특수 쿨다운 표시 — 항상 HP 행들 아래에 (내 캐릭터)
   const myIdx=btl.online?onlinePlayerIdx:0;
   const me=btl.players[myIdx];
   if(me&&me.bs.specialType&&me.bs.specialType!=='none'){
-    const bx=10,by=44,bw=160,bh=10;
+    const bx=10,by=barY,bw=160,bh=10;
     let prog=1,ready=true,msg='특수: 우클릭 준비!',barCol='#ffe066',strokeCol='#ffaa00';
     if(me.charId==='skeleton'&&me.thrownHead){
-      // 해골: 머리 떠있는 동안은 "순간이동 가능" (쿨 무시)
       ready=!me._teleportUsed;
       barCol=ready?'#aaff66':'#666';strokeCol=ready?'#66dd22':'#444';
       msg=ready?'머리 투척 중! 재클릭 → 순간이동':'(이미 순간이동 사용됨)';
       prog=1;
     }else if(me.charId==='zombie'&&me.charging){
-      // 좀비 차지 중
       const min=me.bs.chargeMin||300,max=me.bs.chargeMax||600;
       prog=Math.min(1,me.chargeTimer/max);
       ready=me.chargeTimer>=min;
@@ -6454,26 +6468,14 @@ function btlDrawHP(){
       barCol=ready?'#ffe066':'#888';strokeCol=ready?'#ffaa00':'#555';
       msg=ready?'특수: 우클릭 준비!':'특수 충전중...';
     }
+    // 배경 어두운 박스로 가독성 확보
+    ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(bx-3,by-3,bw+6,bh+18);
     ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(bx,by,bw,bh);
     ctx.fillStyle=barCol;ctx.fillRect(bx,by,bw*prog,bh);
     ctx.strokeStyle=strokeCol;ctx.lineWidth=1;ctx.strokeRect(bx,by,bw,bh);
     ctx.font='8px "Press Start 2P",monospace';ctx.textAlign='left';
-    ctx.fillStyle=ready?barCol:'#aaa';
+    ctx.fillStyle=ready?barCol:'#ddd';
     ctx.fillText(msg,bx,by+bh+10);
-  }
-  ctx.fillStyle=p2.color;ctx.textAlign='right';ctx.fillText(p2.label,W-10,32);
-  for(let i=0;i<p2.maxHp;i++){ctx.fillStyle=i<p2.hp?'#ff3333':'#333';ctx.fillText('♥',W-56-i*26,32);}
-  // P3/P4 두 번째 행 (3P/4P일 때)
-  if(btl.players.length>2){
-    ctx.font='bold 18px "Press Start 2P",monospace';
-    const p3=btl.players[2];
-    ctx.fillStyle=p3.color;ctx.textAlign='left';ctx.fillText(p3.label,10,56);
-    for(let i=0;i<p3.maxHp;i++){ctx.fillStyle=i<p3.hp?'#ff3333':'#333';ctx.fillText('♥',52+i*24,56);}
-    if(btl.players.length>3){
-      const p4=btl.players[3];
-      ctx.fillStyle=p4.color;ctx.textAlign='right';ctx.fillText(p4.label,W-10,56);
-      for(let i=0;i<p4.maxHp;i++){ctx.fillStyle=i<p4.hp?'#ff3333':'#333';ctx.fillText('♥',W-52-i*24,56);}
-    }
   }
   ctx.textAlign='left';
 }
