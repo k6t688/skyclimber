@@ -4483,7 +4483,7 @@ const BTL_STATS={
     specialType:'buff',specialCooldown:300,buffDuration:240,buffKbMul:2.0,buffCdMul:0.5,
     desc:'초고속 연타 | 우클릭: 신체 강화'},
   protein_stick:{hp:3,kb:8,stun:40,cooldown:30,atkType:'comboPunch',autoFire:true,comboKbGrow:3,maxComboKb:50,
-    specialType:'warmup',specialCooldown:180,warmupDuration:240,warmupStacks:5,
+    specialType:'warmup',specialCooldown:180,warmupDuration:90,warmupStacks:5,
     desc:'콤보 펀치 | 우클릭: 준비운동 (4초 정지→콤보+5)'},
   astronaut:{hp:3,kb:20,stun:90,cooldown:80,atkType:'laser',autoFire:true,laserSpeed:18,laserRange:600,slowDuration:180,
     specialType:'satellite',specialCooldown:240,satDelay:150,satRadius:80,satKb:40,satStun:120,
@@ -4880,8 +4880,13 @@ function btlUpdatePlayer(p,dt,kL,kR,kJ,kAtk){
   if(p.confuseTimer>0)p.confuseTimer-=dt;
   // 폭풍 타이머는 btlUpdatePlayer 내 폭풍 블록에서 감소
 
-  // ─ 준비운동 (단백질 스틱): 완전 정지 (피해 받으면 캔슬 — 무적 아님) ─
+  // ─ 준비운동 (단백질 스틱): 우클릭 홀드로 차징, 떼면 취소 ─
   if(p.warmupTimer>0){
+    // 우클릭 놓으면 차징 취소 (쿨다운/스택 없이)
+    if(!p._spHeld){
+      p.warmupTimer=0;
+      return;
+    }
     p.warmupTimer-=dt;
     p.vx=0;p.vy=0;
     // 바닥에 가깝게 유지 (떠있지 않도록)
@@ -4891,9 +4896,10 @@ function btlUpdatePlayer(p,dt,kL,kR,kJ,kAtk){
       if(Math.abs((p.worldY+p.h)-pl.worldY)<4){p.worldY=pl.worldY-p.h;p.onGround=true;break;}
     }
     if(p.warmupTimer<=0){
-      // 완료 → 콤보 스택 부여
+      // 완료 → 콤보 스택 부여 + 쿨다운 적용
       const maxStack=Math.floor((p.bs.maxComboKb-p.bs.kb)/p.bs.comboKbGrow);
       p.comboCount=Math.min(maxStack,(p.comboCount||0)+(p.bs.warmupStacks||5));
+      p.specialCooldown=p.bs.specialCooldown;
       btlSpawnPt(p.x+p.w/2,p.worldY+p.h/2-btl.camY,'#ffe066',30);
     }
     return; // 준비운동 중엔 모든 조작 무시
@@ -5063,11 +5069,9 @@ function btlUpdatePlayer(p,dt,kL,kR,kJ,kAtk){
     if(kAtk&&keys[kAtk]){btlAutoAimAttack(p);}
   }
 
-  // 좀비 자폭 차지 진행 (우클릭 누르고 있는 동안 누적)
+  // 좀비 자폭 차지 진행 (우클릭 누르고 있는 동안 누적, 기절 무관)
   if(p.charging){
-    if(p.stunTimer>0||p.bindTimer>0){
-      p.charging=false;p.chargeTimer=0;
-    }else if(!p._spHeld){
+    if(!p._spHeld){
       // 떼었을 때 최소 차지 충족 시 폭발, 미달이면 취소
       if(p.chargeTimer>=(p.bs.chargeMin||300)){
         btlDetonateZombie(p);
@@ -6077,10 +6081,16 @@ function btlRender(){
       cl.charDef.draw(ctx,sx,sy,cl.facing,0,1000,cl.onGround,cl.vy);
       game=sg;selectedChar=sc;selectedSkin=ss;
       ctx.restore();
+      // 소유자 라벨 (본체와 동일 형식)
+      if(cl.owner&&cl.owner.label){
+        ctx.fillStyle=cl.owner.color||'#ffd700';
+        ctx.font='bold 9px "Press Start 2P",monospace';ctx.textAlign='center';
+        ctx.fillText(cl.owner.label,sx+cl.w/2,sy-5);ctx.textAlign='left';
+      }
       // 자기 분신 식별 표시 (작은 금빛 점, 본인에게만)
       if(isMine){
         ctx.fillStyle='#ffd700';ctx.globalAlpha=0.8;
-        ctx.beginPath();ctx.arc(sx+cl.w/2,sy-6,2,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.arc(sx+cl.w/2,sy-14,2,0,Math.PI*2);ctx.fill();
         ctx.globalAlpha=1;
       }
     }
@@ -6631,10 +6641,10 @@ function btlTriggerSpecial(p,mx,my){
     p.specialCooldown=bs.specialCooldown;
     SFX.shardLaunch&&SFX.shardLaunch();
   }else if(st==='warmup'){
-    // 단백질 스틱: 준비운동 (정지 4초 → 콤보 +5)
+    // 단백질 스틱: 준비운동 (홀드 차징, 완료 시 콤보 +5 / 쿨다운)
     p.warmupTimer=bs.warmupDuration;
     p.vx=0;p.vy=0;
-    p.specialCooldown=bs.specialCooldown;
+    // 쿨다운은 차징 완료 시에만 적용 (btlUpdatePlayer의 warmup 블록)
     btlSpawnPt(cx,cy,'#ffe066',15);
   }else if(st==='satellite'){
     // 우주비행사: 위성 소환 (지연 레이저)
@@ -6758,6 +6768,7 @@ canvas.addEventListener('mousedown',e=>{
         const p=btl.players[onlinePlayerIdx];
         if(p){const cx=p.x+p.w/2,cy=p.worldY+p.h/2-btl.camY;
           btl._netSpAngle=Math.atan2(g.y-cy,g.x-cx);
+          btl._netSpMx=g.x;btl._netSpMy=g.y;
           btl._netSpTriggered=true;btl._netSpHeld=true;}
       }
     }
@@ -7065,7 +7076,9 @@ function sendOnlineInput(){
     mg:+(btl._netAtkAngle||0).toFixed(3),
     s:btl._netSpTriggered?1:0,
     sh:btl._netSpHeld?1:0,
-    sg:+(btl._netSpAngle||0).toFixed(3)
+    sg:+(btl._netSpAngle||0).toFixed(3),
+    spx:btl._netSpMx==null?null:Math.round(btl._netSpMx),
+    spy:btl._netSpMy==null?null:Math.round(btl._netSpMy)
   }));
   btl._netAtkTriggered=false;
   btl._netSpTriggered=false;
@@ -7163,7 +7176,9 @@ function applyGuestInput(p,idx,dt){
   // 특수능력 트리거 (게스트)
   if(inp.s&&p.stunTimer<=0&&p.warmupTimer<=0&&p.bindTimer<=0){
     const cx=p.x+p.w/2,cy=p.worldY+p.h/2-btl.camY;
-    const mx=cx+Math.cos(inp.sg||0)*100,my=cy+Math.sin(inp.sg||0)*100;
+    // 실제 클릭 위치 사용 (우주비행사 위성 등 위치 기반 특수용), 없으면 각도+100px
+    const mx=(inp.spx!=null)?inp.spx:(cx+Math.cos(inp.sg||0)*100);
+    const my=(inp.spy!=null)?inp.spy:(cy+Math.sin(inp.sg||0)*100);
     // 구르기/파도타기의 방향키 입력을 임시 주입 (호스트 keys에 영향 없도록 플래그 저장/복구)
     const savedL=keys['ArrowLeft'],savedR=keys['ArrowRight'],savedU=keys['ArrowUp'];
     keys['ArrowLeft']=!!inp.l;keys['ArrowRight']=!!inp.r;keys['ArrowUp']=!!inp.j;
@@ -7518,6 +7533,18 @@ function btlTriggerAttackByAngle(p,angle){
     if(p.attackCooldown>0)return;
     p.attackCooldown=bs.cooldown;SFX.eyeBeamLaunch();
     btl.projectiles.push({type:'eye_beam',owner:p,x:p.x+p.w/2,y:p.worldY+p.h/2,vx:Math.cos(angle)*bs.beamSpeed,vy:Math.sin(angle)*bs.beamSpeed,dist:0,maxDist:bs.beamRange,stun:bs.stun,kb:bs.kb,blindDur:bs.blindDuration});
+    // 분신도 같은 방향으로 발사
+    if(btl.clones){
+      for(const cl of btl.clones){
+        if(cl.owner!==p)continue;
+        cl.facing=Math.cos(angle)>=0?1:-1;
+        cl.attacking=true;cl.attackTimer=12;cl.attackAngle=angle;
+        btl.projectiles.push({type:'eye_beam',owner:p,
+          x:cl.x+cl.w/2,y:cl.worldY+cl.h/2,
+          vx:Math.cos(angle)*bs.beamSpeed,vy:Math.sin(angle)*bs.beamSpeed,
+          dist:0,maxDist:bs.beamRange,stun:bs.stun,kb:bs.kb,blindDur:bs.blindDuration});
+      }
+    }
   }else if(bs.atkType==='whirlwind'){
     if(p.attackCooldown>0)return;
     p.attackCooldown=bs.cooldown;SFX.whirlwindLaunch();
@@ -7526,6 +7553,10 @@ function btlTriggerAttackByAngle(p,angle){
       dist:0,maxDist:bs.wwRange,stun:bs.stun,kb:bs.kb,
       zoneRadius:bs.wwZoneRadius,zoneDur:bs.wwZoneDur,pullStr:bs.wwPullStrength,
       slowDur:bs.wwSlowDur,zoneKb:bs.wwZoneKb,tickRate:bs.wwZoneTickRate});
+  }else if(bs.atkType==='claw'){
+    // 좀비: 할퀴기
+    if(p.attacking||p.attackCooldown>0)return;
+    p.attackAngle=angle;p.attacking=true;p.attackTimer=14;p.attackCooldown=bs.cooldown;SFX.punchSwing();
   }else if(bs.atkType==='detonate'){
     if(p.charging||p.attackCooldown>0)return;
     p.charging=true;p.chargeTimer=0;
