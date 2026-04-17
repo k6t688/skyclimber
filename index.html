@@ -4482,8 +4482,8 @@ const BTL_STATS={
   rabbit:{hp:3,kb:5,stun:8,cooldown:6,atkType:'rapidPunch',autoFire:true,
     specialType:'buff',specialCooldown:300,buffDuration:240,buffKbMul:2.0,buffCdMul:0.5,
     desc:'초고속 연타 | 우클릭: 신체 강화'},
-  protein_stick:{hp:3,kb:8,stun:40,cooldown:30,atkType:'comboPunch',autoFire:true,comboKbGrow:3,maxComboKb:50,
-    specialType:'warmup',specialCooldown:180,warmupDuration:90,warmupStacks:5,
+  protein_stick:{hp:3,kb:8,stun:40,cooldown:30,atkType:'comboPunch',autoFire:true,comboKbGrow:3,maxComboKb:200,
+    specialType:'warmup',specialCooldown:180,warmupDuration:180,warmupStacks:5,
     desc:'콤보 펀치 | 우클릭: 준비운동 (4초 정지→콤보+5)'},
   astronaut:{hp:3,kb:20,stun:90,cooldown:80,atkType:'laser',autoFire:true,laserSpeed:18,laserRange:600,slowDuration:180,
     specialType:'satellite',specialCooldown:240,satDelay:150,satRadius:80,satKb:40,satStun:120,
@@ -5158,7 +5158,7 @@ function btlCheckHit(atk,tgt){
     const cx=atk.x+atk.w/2,cy=atk.worldY+atk.h/2;
     const maxT=bs.atkType==='rapidPunch'?8:bs.atkType==='comboPunch'?10:12;
     const prog=atk.attackTimer/maxT;
-    const ext=Math.sin(prog*Math.PI)*90;
+    const ext=Math.sin(prog*Math.PI)*(bs.atkType==='comboPunch'?45:90);
     const fistX=cx+Math.cos(atk.attackAngle)*ext;
     const fistY=cy+Math.sin(atk.attackAngle)*ext;
     const dx=(tgt.x+tgt.w/2)-fistX,dy=(tgt.worldY+tgt.h/2)-fistY;
@@ -6316,7 +6316,7 @@ function btlDrawPlayer(p){
   // 공격 시각효과 (캐릭터별) — claw는 별도 렌더링
   if(p.attacking&&p.bs.atkType!=='claw'){
     const prog=p.attackTimer/(p.bs.atkType==='rapidPunch'?8:p.bs.atkType==='comboPunch'?10:12);
-    const ext=Math.sin(prog*Math.PI)*90;
+    const ext=Math.sin(prog*Math.PI)*(p.bs.atkType==='comboPunch'?45:90);
     const cx=sx+p.w/2,cy=sy+p.h/2;
     const fx=cx+Math.cos(p.attackAngle)*ext;
     const fy=cy+Math.sin(p.attackAngle)*ext;
