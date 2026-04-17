@@ -4504,8 +4504,9 @@ const BTL_STATS={
   storm:{hp:3,kb:18,stun:40,cooldown:90,atkType:'whirlwind',autoFire:true,
     wwSpeed:10,wwRange:300,wwZoneDur:120,wwZoneRadius:60,wwZoneTickRate:5,
     wwPullStrength:9,wwSlowDur:60,wwZoneKb:6,
-    specialType:'none',specialCooldown:0,
-    desc:'회오리 투사체 → 설치형 회오리장'},
+    specialType:'storm_reflect',specialCooldown:360,
+    stormDuration:60,stormRadius:50,
+    desc:'회오리 투사체 → 설치형 회오리장 | 우클릭: 폭풍 반사 (1초 무적, 투사체 반사)'},
 };
 
 function btlMakePlayer(charId,x,facing,label,color,skin){
@@ -4540,6 +4541,7 @@ function btlMakePlayer(charId,x,facing,label,color,skin){
     _teleportUsed:false,  // 해골 한번 순간이동 사용했는지
     bindTimer:0,          // 속박 (인절미 떡)
     confuseTimer:0,       // 혼란 (좌우 반전) — 일루미나티 영혼
+    stormTimer:0,         // 폭풍 반사 (폭풍)
     _spHeld:false,        // 우클릭 누름 상태 (좀비 차지용)
     skin:skin||'default',
     bs,charId,charDef:c,label,color,_jumpHeld:false};
@@ -4876,6 +4878,7 @@ function btlUpdatePlayer(p,dt,kL,kR,kJ,kAtk){
   if(p.invulTimer>0)p.invulTimer-=dt;
   if(p.bindTimer>0)p.bindTimer-=dt;
   if(p.confuseTimer>0)p.confuseTimer-=dt;
+  // 폭풍 타이머는 btlUpdatePlayer 내 폭풍 블록에서 감소
 
   // ─ 준비운동 (단백질 스틱): 완전 정지 (피해 받으면 캔슬 — 무적 아님) ─
   if(p.warmupTimer>0){
@@ -4894,6 +4897,36 @@ function btlUpdatePlayer(p,dt,kL,kR,kJ,kAtk){
       btlSpawnPt(p.x+p.w/2,p.worldY+p.h/2-btl.camY,'#ffe066',30);
     }
     return; // 준비운동 중엔 모든 조작 무시
+  }
+
+  // ─ 폭풍 반사 (폭풍): 정지 + 무적 + 투사체 반사 ─
+  if(p.stormTimer>0){
+    p.stormTimer-=dt;
+    p.vx=0;p.vy=0;
+    // 시각 스케일과 일치하는 반경 (0→최대→0)
+    const sdur=p.bs.stormDuration||60;
+    const stp=1-p.stormTimer/sdur; // 0→1
+    const se=Math.sin(stp*Math.PI); // 0→1→0
+    const scx=p.x+p.w/2,scy=p.worldY+p.h/2;
+    const sMax=p.bs.stormRadius||50;
+    const sr=sMax*(0.4+se*0.6); // 20→50→20
+    for(const pr of btl.projectiles){
+      if(!pr.owner||pr.owner===p)continue;
+      if(pr._stormReflSess===p._stormSess)continue;
+      const dx=pr.x-scx,dy=pr.y-scy;
+      if(dx*dx+dy*dy>sr*sr)continue;
+      if(pr.type==='head'){
+        // 머리: 방향만 반전, 공격자 유지 (해골 순간이동용)
+        pr.vx=-pr.vx;pr.vy=-pr.vy;
+      }else{
+        // 나머지(soul/whirlwind 포함): 방향 반전 + 소유자 변경
+        pr.vx=-pr.vx;pr.vy=-pr.vy;
+        pr.owner=p;
+      }
+      pr._stormReflSess=p._stormSess;
+      btlSpawnPt(pr.x,pr.y-btl.camY,'#aaddff',8);
+    }
+    return; // 폭풍 중엔 모든 조작 무시
   }
 
   // ─ 구르기 (탐험가) / 파도타기 (물고기): 이동 오버라이드 ─
@@ -5202,10 +5235,8 @@ function btlUpdateClones(dt){
   for(let i=0;i<btl.clones.length;i++){
     const cl=btl.clones[i];
     if(!cl.owner||cl.owner.hp<=0){remove.push(i);continue;}
-    // 물리 (중력 + 일루미나티 느린 낙하)
+    // 물리 (중력)
     cl.vy=Math.min(cl.vy+0.35*dt,10);
-    // 카메라 뒤처짐 방지 (공중부양)
-    if(cl.worldY-btl.camY>H-80){cl.vy=Math.min(cl.vy,-1.5);}
     cl.x+=cl.vx*dt;cl.worldY+=cl.vy*dt;
     // 발판 충돌
     cl.onGround=false;
@@ -5718,7 +5749,7 @@ function btlRespawn(p){
   else{p.x=W/2-p.w/2;p.worldY=btl.camY+60;}
   p.vx=0;p.vy=0;p.jumps=p.maxJumps;p.crouching=false;p.crouchTimer=0;p.flying=false;p.flyTimer=0;p.spinAngle=0;p.stunTimer=0;p.knocked=false;p.slowTimer=0;p.floatTimer=0;p.grabArm=null;p.attacking=false;
   // 특수능력 상태 리셋
-  p.buffTimer=0;p.dodgeTimer=0;p.dashTimer=0;p.invulTimer=0;p.warmupTimer=0;p.bindTimer=0;p.confuseTimer=0;
+  p.buffTimer=0;p.dodgeTimer=0;p.dashTimer=0;p.invulTimer=0;p.warmupTimer=0;p.bindTimer=0;p.confuseTimer=0;p.stormTimer=0;
   p.charging=false;p.chargeTimer=0;p._teleportUsed=false;p._spHeld=false;
   // 해골 머리 복구
   if(p.thrownHead){
@@ -6046,17 +6077,6 @@ function btlRender(){
       cl.charDef.draw(ctx,sx,sy,cl.facing,0,1000,cl.onGround,cl.vy);
       game=sg;selectedChar=sc;selectedSkin=ss;
       ctx.restore();
-      // 분신 공격 이펙트 (본체 eye_beam과 연동)
-      if(cl.attacking){
-        const cx=sx+cl.w/2,cy=sy+cl.h/2;
-        const prog=cl.attackTimer/12;
-        const ext=Math.sin(prog*Math.PI)*70;
-        const fx=cx+Math.cos(cl.attackAngle)*ext;
-        const fy=cy+Math.sin(cl.attackAngle)*ext;
-        ctx.strokeStyle='#ffd700';ctx.lineWidth=2;
-        ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(fx,fy);ctx.stroke();
-        ctx.fillStyle='#fff8c0';ctx.beginPath();ctx.arc(fx,fy,4,0,Math.PI*2);ctx.fill();
-      }
       // 자기 분신 식별 표시 (작은 금빛 점, 본인에게만)
       if(isMine){
         ctx.fillStyle='#ffd700';ctx.globalAlpha=0.8;
@@ -6207,18 +6227,47 @@ function btlDrawPlayer(p){
     // 땀방울
     if(Math.random()<0.3)btl.particles.push({x:cax+(Math.random()-0.5)*16,y:sy,vx:0,vy:1,life:0.6,decay:0.05,sz:2,col:'#aaccff'});
   }
-  // 무적 시각효과 (구르기/파도타기 등)
-  if(p.invulTimer>0&&p.warmupTimer<=0){
+  // 무적 시각효과 (구르기/파도타기 등, 폭풍 제외 — 폭풍은 자체 효과)
+  if(p.invulTimer>0&&p.warmupTimer<=0&&p.stormTimer<=0){
     ctx.globalAlpha=0.5+0.3*Math.sin(btl.time*0.8);
     ctx.strokeStyle='#fff';ctx.lineWidth=2;
     ctx.beginPath();ctx.arc(cax,cay,p.w,0,Math.PI*2);ctx.stroke();
     ctx.globalAlpha=1;
   }
+  // 폭풍 반사 시각효과 (커졌다 작아지는 회오리 링 + 파티클)
+  let _stormScale=1;
+  if(p.stormTimer>0){
+    const sdur=p.bs.stormDuration||60;
+    const st=1-p.stormTimer/sdur; // 0→1
+    const se=Math.sin(st*Math.PI); // 0→1→0
+    _stormScale=1+se*0.5;
+    const sr=(p.bs.stormRadius||50)*(0.45+se*0.55);
+    ctx.save();
+    for(let ring=0;ring<4;ring++){
+      const spin=btl.time*0.5+ring*Math.PI/2;
+      ctx.globalAlpha=0.35*Math.max(0.3,se);
+      ctx.strokeStyle=ring%2?'#88ccff':'#ffffff';
+      ctx.lineWidth=3-ring*0.4;
+      ctx.beginPath();
+      ctx.arc(cax,cay,sr*(0.5+ring*0.18),spin,spin+Math.PI*1.6);
+      ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+    ctx.restore();
+    if(Math.random()<0.8){
+      const a=Math.random()*Math.PI*2;
+      const rr=sr*(0.55+Math.random()*0.45);
+      btl.particles.push({x:cax+Math.cos(a)*rr,y:cay+Math.sin(a)*rr*0.75,
+        vx:-Math.sin(a)*3,vy:Math.cos(a)*3,life:0.8,decay:0.04,sz:3,col:Math.random()<0.5?'#aaddff':'#ffffff'});
+    }
+  }
   // mock game.p for character draw functions
   const sg=game,sc=selectedChar,ss=selectedSkin;
-  game={p:{crouching:p.crouching,crouchTimer:p.crouchTimer,flying:p.flying,spinAngle:p.spinAngle,onGround:p.onGround},char:p.charDef};
+  game={p:{crouching:p.crouching,crouchTimer:p.crouchTimer,flying:p.flying,spinAngle:p.stormTimer>0?btl.time*0.5:p.spinAngle,onGround:p.onGround},char:p.charDef};
   selectedChar=p.charId;selectedSkin=p.skin||'default';
+  if(_stormScale!==1){ctx.save();ctx.translate(cax,cay);ctx.scale(_stormScale,_stormScale);ctx.translate(-cax,-cay);}
   p.charDef.draw(ctx,sx,sy,p.facing,p.frame,1000,p.onGround,p.vy);
+  if(_stormScale!==1)ctx.restore();
   game=sg;selectedChar=sc;selectedSkin=ss;
   // 해골 머리없음: 두개골 영역을 배경색으로 덮어 숨기고 목/피 표시
   if(p.headless&&p.charId==='skeleton'){
@@ -6427,6 +6476,7 @@ let btlMouseX=0,btlMouseY=0;
 function btlTriggerAttack(p,mx,my){
   if(!btl||btl.state!=='playing')return;
   if(p.stunTimer>0)return;
+  if(p.stormTimer>0)return;
   const cx=p.x+p.w/2,cy=p.worldY+p.h/2-btl.camY;
   const angle=Math.atan2(my-cy,mx-cx);
   p.facing=Math.cos(angle)>=0?1:-1;
@@ -6672,6 +6722,18 @@ function btlTriggerSpecial(p,mx,my){
     // 분열 파티클 (금빛 폭발)
     for(let k=0;k<30;k++){const a=Math.random()*Math.PI*2,s=2+Math.random()*5;
       btl.particles.push({x:p.x+p.w/2,y:p.worldY+p.h/2-btl.camY,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1,decay:0.04,sz:3+Math.random()*3,col:k%2?'#ffd700':'#fff8c0'});}
+  }else if(st==='storm_reflect'){
+    // 폭풍: 반사 폭풍 (1초 무적, 정지, 투사체 반사)
+    p.stormTimer=bs.stormDuration;
+    p.invulTimer=Math.max(p.invulTimer,bs.stormDuration);
+    p._stormSess=(p._stormSess||0)+1; // 재진입 시 같은 투사체 다시 반사 허용
+    p.vx=0;p.vy=0;
+    p.specialCooldown=bs.specialCooldown;
+    SFX.whirlwindLaunch&&SFX.whirlwindLaunch();
+    // 발동 파티클
+    const cx3=p.x+p.w/2,cy3=p.worldY+p.h/2-btl.camY;
+    for(let k=0;k<25;k++){const a=Math.random()*Math.PI*2,s=2+Math.random()*4;
+      btl.particles.push({x:cx3,y:cy3,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1,decay:0.04,sz:3+Math.random()*3,col:k%2?'#aaddff':'#ffffff'});}
   }
 }
 
@@ -7079,7 +7141,8 @@ function sendOnlineState(){
         bd:Math.round(p.bindTimer||0),
         hl:p.headless?1:0,
         sc:Math.round(p.specialCooldown||0),
-        cf:Math.round(p.confuseTimer||0)
+        cf:Math.round(p.confuseTimer||0),
+        sr:Math.round(p.stormTimer||0)
       };
       if(p.grabArm){pd.ga={x:+p.grabArm.x.toFixed(1),y:+p.grabArm.y.toFixed(1),h:p.grabArm.hit?1:0,r:p.grabArm.returning?1:0};}
       return pd;
@@ -7292,6 +7355,15 @@ function applyHostState(st){
     if(p.confuseTimer>0&&prevConf<=0){
       btlSpawnPt(p.x+p.w/2,p.worldY+p.h/2-btl.camY,'#cc66ff',18);
     }
+    const prevStorm=p.stormTimer||0;
+    p.stormTimer=d.sr||0;
+    if(p.stormTimer>0&&prevStorm<=0){
+      // 폭풍 발동 → 사운드 + 발동 파티클
+      SFX.whirlwindLaunch&&SFX.whirlwindLaunch();
+      const scx=p.x+p.w/2,scy=p.worldY+p.h/2-btl.camY;
+      for(let k=0;k<25;k++){const a=Math.random()*Math.PI*2,s=2+Math.random()*4;
+        btl.particles.push({x:scx,y:scy,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1,decay:0.04,sz:3+Math.random()*3,col:k%2?'#aaddff':'#ffffff'});}
+    }
     // 특수 전환 이펙트 (게스트)
     if(p.buffTimer>0&&prevBuff<=0){
       // 신체강화 시작 → 붉은 폭발 파티클
@@ -7407,7 +7479,7 @@ function applyHostState(st){
 }
 
 function btlTriggerAttackByAngle(p,angle){
-  if(!btl||btl.state!=='playing'||p.stunTimer>0)return;
+  if(!btl||btl.state!=='playing'||p.stunTimer>0||p.stormTimer>0)return;
   const bs=p.bs;
   p.facing=Math.cos(angle)>=0?1:-1;
   if(bs.atkType==='rapidPunch'){
