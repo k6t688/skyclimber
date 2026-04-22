@@ -4568,7 +4568,7 @@ function startBattle(testMode){
   }
   btl={
     camY:-H/2,scrollSpeed:testMode?0:1.0,time:0,online:false,seed:seed,platIdx:0,testMode:!!testMode,
-    height:0,ship:null,shipSpawned:false,
+    height:testMode?10000:0,ship:null,shipSpawned:false,
     platforms:[],particles:[],projectiles:[],whirlwindZones:[],traps:[],satellites:[],clones:[],
     stars:Array.from({length:120},()=>({x:Math.random()*W,y:Math.random()*H,sz:Math.random()<0.3?2:1,tw:Math.random()*Math.PI*2,spd:0.02+Math.random()*0.04})),
     players,
@@ -4578,14 +4578,8 @@ function startBattle(testMode){
     state:'countdown',countdown:180,winner:null,hitStop:0,_endBound:false
   };
   btl.platforms.push({x:0,worldY:0,w:W,h:20,type:'ground'});
-  if(testMode){
-    btl.platforms.push({x:W*0.1,worldY:-100,w:120,h:14,type:'rock'});
-    btl.platforms.push({x:W*0.5,worldY:-100,w:120,h:14,type:'rock'});
-    btl.platforms.push({x:W*0.3,worldY:-200,w:140,h:14,type:'rock'});
-    btl.platforms.push({x:W*0.05,worldY:-300,w:100,h:14,type:'rock'});
-    btl.platforms.push({x:W*0.6,worldY:-300,w:100,h:14,type:'rock'});
-    btl.platforms.push({x:W*0.3,worldY:-400,w:160,h:14,type:'rock'});
-  }else{
+  {
+    // 테스트 모드도 정상 발판 생성 (우주선 테스트를 위해) — 단 기본 바닥은 위에 이미 있음
     let wy=-60;
     while(wy>-H*2){
       btl.platIdx++;
@@ -4718,7 +4712,7 @@ function btlUpdate(dt){
   }
 
   // 우주선 시스템: 10000m → 스크롤 정지 → 5초 카운트다운(대상 은닉) → 기존 발판 중 랜덤 1개 선택 → 착륙
-  if(!btl.testMode&&btl.height>=10000&&!btl.shipSpawned){
+  if(btl.height>=10000&&!btl.shipSpawned){
     btl.shipSpawned=true;
     btl.scrollSpeed=0;
     // 화면 내(카메라 뷰포트)에 있는 폭 ≥ 70 발판 후보
