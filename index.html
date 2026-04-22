@@ -4717,13 +4717,26 @@ function btlUpdate(dt){
     btl.height+=btl.scrollSpeed*dt*0.8;
   }
 
-  // 우주선 시스템: 10000m → 스크롤 정지 → 5초 카운트다운 → 황금 발판 생성 → 우주선 착륙 → 탑승 가능
+  // 우주선 시스템: 10000m → 스크롤 정지 → 5초 카운트다운(대상 은닉) → 기존 발판 중 랜덤 1개 선택 → 착륙
   if(!btl.testMode&&btl.height>=10000&&!btl.shipSpawned){
     btl.shipSpawned=true;
     btl.scrollSpeed=0;
-    const padX=80+Math.random()*(W-260);
-    const padWY=btl.camY+H*0.35;
-    btl.platforms.push({x:padX,worldY:padWY,w:140,h:16,type:'gold',isShipPad:true});
+    // 화면 내(카메라 뷰포트)에 있는 폭 ≥ 70 발판 후보
+    const candidates=btl.platforms.filter(p=>
+      p.worldY>=btl.camY-20 && p.worldY<=btl.camY+H && p.w>=70
+    );
+    let padX,padWY;
+    if(candidates.length>0){
+      const target=candidates[Math.floor(Math.random()*candidates.length)];
+      target.isShipPad=true; // 기존 발판 마킹
+      padX=target.x+target.w/2-70; // ship 렌더 기준 (기존 formula 맞춤)
+      padWY=target.worldY;
+    }else{
+      // 폴백: 후보 없으면 기존 방식으로 신규 발판 생성
+      padX=80+Math.random()*(W-260);
+      padWY=btl.camY+H*0.35;
+      btl.platforms.push({x:padX,worldY:padWY,w:140,h:16,type:'gold',isShipPad:true});
+    }
     btl.ship={
       x:padX+70,w:80,h:100,
       worldY:btl.camY-200,
@@ -4738,10 +4751,18 @@ function btlUpdate(dt){
     const s=btl.ship;
     if(s.phase==='countdown'){
       s.countdownTimer+=dt;
-      if(s.countdownTimer>=300){s.phase='descending';}
-    }else if(s.phase==='descending'){
-      s.worldY+=3.0*dt;
-      if(s.worldY>=s.targetWY){s.worldY=s.targetWY;s.phase='ready';}
+      if(s.countdownTimer>=300){
+        // 카운트다운 종료 → 즉시 착륙 연출 + ready 페이즈
+        s.worldY=s.targetWY;
+        s.phase='ready';
+        SFX.explode&&SFX.explode();
+        // 먼지 + 황금 파티클 (대상 발판 위치에)
+        const lx=s.x,ly=s.padY-btl.camY;
+        for(let k=0;k<28;k++){
+          const a=Math.random()*Math.PI*2,sp=2+Math.random()*6;
+          btl.particles.push({x:lx,y:ly,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-2,life:1,decay:0.03+Math.random()*0.03,sz:3+Math.random()*4,col:k%2?'#ffe066':'#cc9933'});
+        }
+      }
     }else if(s.phase==='ready'){
       for(let pi=0;pi<btl.players.length;pi++){
         const p=btl.players[pi];
@@ -6007,8 +6028,8 @@ function btlRender(){
     ctx.beginPath();ctx.arc(wz.x,sy,8,0,Math.PI*2);ctx.fill();
     ctx.restore();
   }
-  // 우주선 렌더
-  if(btl.ship){
+  // 우주선 렌더 (countdown 동안은 대상 발판 은닉 위해 렌더 스킵)
+  if(btl.ship&&btl.ship.phase!=='countdown'){
     const s=btl.ship;
     const sx=s.x,sy=s.worldY-btl.camY;
     if(sy>-200&&sy<H+200){
@@ -6114,13 +6135,11 @@ function btlRender(){
     const s=btl.ship;
     if(s.phase==='countdown'){
       const sec=Math.ceil((300-s.countdownTimer)/60);
-      ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(W/2-180,H/2-28,360,56);
-      ctx.fillStyle='#ffe066';ctx.font='bold 16px "Press Start 2P",monospace';ctx.textAlign='center';
-      ctx.fillText('🚀 우주선 도착까지 '+sec+'초',W/2,H/2+6);ctx.textAlign='left';
-    }else if(s.phase==='descending'){
-      ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(W/2-130,20,260,36);
-      ctx.fillStyle='#adf';ctx.font='12px "Press Start 2P",monospace';ctx.textAlign='center';
-      ctx.fillText('🚀 우주선 착륙 중...',W/2,42);ctx.textAlign='left';
+      ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(W/2-200,H/2-28,400,56);
+      ctx.fillStyle='#ffe066';ctx.font='bold 14px "Press Start 2P",monospace';ctx.textAlign='center';
+      ctx.fillText('🚀 우주선 접근 중... '+sec+'초',W/2,H/2-2);
+      ctx.fillStyle='#ffaa66';ctx.font='9px "Press Start 2P",monospace';
+      ctx.fillText('(착륙지점 불명)',W/2,H/2+16);ctx.textAlign='left';
     }else if(s.phase==='ready'){
       ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(W/2-160,20,320,36);
       ctx.fillStyle='#8f8';ctx.font='12px "Press Start 2P",monospace';ctx.textAlign='center';
@@ -7210,8 +7229,31 @@ function applyHostState(st){
   // 우주선 동기화
   if(st.ss&&!btl.shipSpawned){
     btl.shipSpawned=true;
+    btl.scrollSpeed=0;
     if(!btl.platforms.find(p=>p.isShipPad)&&st.ship){
-      btl.platforms.push({x:st.ship.x-70,worldY:st.ship.py,w:140,h:16,type:'gold',isShipPad:true});
+      // 기존 발판 중 대상 위치(ship.x 중심, py)와 가장 가까운 것을 마킹
+      const targetX=st.ship.x, targetY=st.ship.py;
+      let best=null,bestD=Infinity;
+      for(const pl of btl.platforms){
+        const cx=pl.x+pl.w/2;
+        const d=Math.abs(cx-targetX)+Math.abs(pl.worldY-targetY);
+        if(d<bestD){bestD=d;best=pl;}
+      }
+      if(best&&bestD<40){
+        best.isShipPad=true;
+      }else{
+        // 폴백: 매칭 실패 시 신규 발판 생성 (결정론 깨진 드문 경우)
+        btl.platforms.push({x:targetX-70,worldY:targetY,w:140,h:16,type:'gold',isShipPad:true});
+      }
+    }
+  }
+  // 게스트 측 ready 페이즈 진입 감지 → 착륙 연출
+  if(st.ship&&btl.ship&&btl.ship.phase==='countdown'&&st.ship.ph==='ready'){
+    SFX.explode&&SFX.explode();
+    const lx=st.ship.x,ly=st.ship.py-btl.camY;
+    for(let k=0;k<28;k++){
+      const a=Math.random()*Math.PI*2,sp=2+Math.random()*6;
+      btl.particles.push({x:lx,y:ly,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-2,life:1,decay:0.03+Math.random()*0.03,sz:3+Math.random()*4,col:k%2?'#ffe066':'#cc9933'});
     }
   }
   if(st.ship){
