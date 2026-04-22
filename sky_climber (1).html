@@ -4715,9 +4715,11 @@ function btlUpdate(dt){
   if(btl.height>=10000&&!btl.shipSpawned){
     btl.shipSpawned=true;
     btl.scrollSpeed=0;
-    // 화면 내(카메라 뷰포트)에 있는 폭 ≥ 70 발판 후보
+    // 화면 하단부(상단 45% 이하)에 있는 폭 ≥ 70 발판 후보
+    // — 우주선이 위에서 내려올 여유 공간 확보 + 탑승자가 접근 가능한 영역
+    const topMargin=H*0.45;
     const candidates=btl.platforms.filter(p=>
-      p.worldY>=btl.camY-20 && p.worldY<=btl.camY+H && p.w>=70
+      p.worldY>=btl.camY+topMargin && p.worldY<=btl.camY+H-20 && p.w>=70
     );
     let padX,padWY;
     if(candidates.length>0){
@@ -4746,7 +4748,14 @@ function btlUpdate(dt){
     if(s.phase==='countdown'){
       s.countdownTimer+=dt;
       if(s.countdownTimer>=300){
-        // 카운트다운 종료 → 즉시 착륙 연출 + ready 페이즈
+        // 카운트다운 종료 → descending 시작 (화면 상단에서 등장)
+        s.worldY=btl.camY-s.h+20; // 화면 바로 위에서 살짝 보이게 시작
+        s.phase='descending';
+        SFX.whirlwindLaunch&&SFX.whirlwindLaunch();
+      }
+    }else if(s.phase==='descending'){
+      s.worldY+=8.0*dt; // 빠르게 하강 (~1초 내 도착)
+      if(s.worldY>=s.targetWY){
         s.worldY=s.targetWY;
         s.phase='ready';
         SFX.explode&&SFX.explode();
@@ -6134,6 +6143,10 @@ function btlRender(){
       ctx.fillText('🚀 우주선 접근 중... '+sec+'초',W/2,H/2-2);
       ctx.fillStyle='#ffaa66';ctx.font='9px "Press Start 2P",monospace';
       ctx.fillText('(착륙지점 불명)',W/2,H/2+16);ctx.textAlign='left';
+    }else if(s.phase==='descending'){
+      ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(W/2-130,20,260,36);
+      ctx.fillStyle='#adf';ctx.font='12px "Press Start 2P",monospace';ctx.textAlign='center';
+      ctx.fillText('🚀 착륙 중!',W/2,42);ctx.textAlign='left';
     }else if(s.phase==='ready'){
       ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(W/2-160,20,320,36);
       ctx.fillStyle='#8f8';ctx.font='12px "Press Start 2P",monospace';ctx.textAlign='center';
