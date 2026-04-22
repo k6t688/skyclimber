@@ -4715,9 +4715,9 @@ function btlUpdate(dt){
   if(btl.height>=10000&&!btl.shipSpawned){
     btl.shipSpawned=true;
     btl.scrollSpeed=0;
-    // 화면 하단부(상단 45% 이하)에 있는 폭 ≥ 70 발판 후보
+    // 화면 하단부(상단 15% 제외)에 있는 폭 ≥ 70 발판 후보
     // — 우주선이 위에서 내려올 여유 공간 확보 + 탑승자가 접근 가능한 영역
-    const topMargin=H*0.45;
+    const topMargin=H*0.15;
     const candidates=btl.platforms.filter(p=>
       p.worldY>=btl.camY+topMargin && p.worldY<=btl.camY+H-20 && p.w>=70
     );
@@ -4754,7 +4754,7 @@ function btlUpdate(dt){
         SFX.whirlwindLaunch&&SFX.whirlwindLaunch();
       }
     }else if(s.phase==='descending'){
-      s.worldY+=8.0*dt; // 빠르게 하강 (~1초 내 도착)
+      s.worldY+=3.5*dt; // 하강 속도 (여유 있는 낙하 연출)
       if(s.worldY>=s.targetWY){
         s.worldY=s.targetWY;
         s.phase='ready';
@@ -6069,12 +6069,29 @@ function btlRender(){
         // 빈 창문 하이라이트
         ctx.fillStyle='rgba(100,200,255,0.2)';ctx.beginPath();ctx.arc(sx-3,sy+37,5,0,Math.PI*2);ctx.fill();
       }
-      // 발사 중 화염
-      if(s.launching){
-        for(let i=0;i<3;i++){
-          const fx=sx-12+Math.random()*24,fy=sy+90+Math.random()*15;
-          ctx.fillStyle=Math.random()>0.5?'#ff6633':'#ffe066';
-          ctx.fillRect(fx,fy,6+Math.random()*6,8+Math.random()*10);
+      // 하강/발사 중 화염 (descending은 역추진 — 작고 파랑빛 섞임, launching은 큰 오렌지)
+      if(s.phase==='descending'||s.launching){
+        const isDesc=s.phase==='descending';
+        const count=isDesc?4:3;
+        for(let i=0;i<count;i++){
+          const fx=sx-14+Math.random()*28,fy=sy+90+Math.random()*(isDesc?20:15);
+          if(isDesc){
+            // 역추진 제트 — 파란/흰색 계열
+            const r=Math.random();
+            ctx.fillStyle=r>0.6?'#aaddff':r>0.3?'#ffffff':'#ffe066';
+          }else{
+            ctx.fillStyle=Math.random()>0.5?'#ff6633':'#ffe066';
+          }
+          const fw=4+Math.random()*6,fh=(isDesc?10:8)+Math.random()*(isDesc?14:10);
+          ctx.fillRect(fx,fy,fw,fh);
+        }
+        // 추가: descending 중 양옆 작은 제트
+        if(isDesc){
+          for(let j=0;j<2;j++){
+            const offX=j===0?-20:14;
+            ctx.fillStyle=Math.random()>0.5?'#aaddff':'#ffffff';
+            ctx.fillRect(sx+offX+Math.random()*6,sy+85+Math.random()*6,3+Math.random()*3,5+Math.random()*6);
+          }
         }
       }
     }
@@ -7254,13 +7271,21 @@ function applyHostState(st){
       }
     }
   }
-  // 게스트 측 ready 페이즈 진입 감지 → 착륙 연출
-  if(st.ship&&btl.ship&&btl.ship.phase==='countdown'&&st.ship.ph==='ready'){
-    SFX.explode&&SFX.explode();
-    const lx=st.ship.x,ly=st.ship.py-btl.camY;
-    for(let k=0;k<28;k++){
-      const a=Math.random()*Math.PI*2,sp=2+Math.random()*6;
-      btl.particles.push({x:lx,y:ly,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-2,life:1,decay:0.03+Math.random()*0.03,sz:3+Math.random()*4,col:k%2?'#ffe066':'#cc9933'});
+  // 게스트 측 페이즈 전환 감지 (descending 진입 사운드, ready 착륙 연출)
+  if(st.ship&&btl.ship){
+    const prevPh=btl.ship.phase;
+    if(prevPh==='countdown'&&st.ship.ph==='descending'){
+      // 추진기 점화 사운드
+      SFX.whirlwindLaunch&&SFX.whirlwindLaunch();
+    }
+    if(prevPh!=='ready'&&st.ship.ph==='ready'){
+      // 착륙 폭발음 + 파티클
+      SFX.explode&&SFX.explode();
+      const lx=st.ship.x,ly=st.ship.py-btl.camY;
+      for(let k=0;k<28;k++){
+        const a=Math.random()*Math.PI*2,sp=2+Math.random()*6;
+        btl.particles.push({x:lx,y:ly,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-2,life:1,decay:0.03+Math.random()*0.03,sz:3+Math.random()*4,col:k%2?'#ffe066':'#cc9933'});
+      }
     }
   }
   if(st.ship){
