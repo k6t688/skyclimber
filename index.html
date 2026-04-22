@@ -4551,8 +4551,8 @@ const BTL_PLAT_TYPES=['rock','dirt','grass','cloud','ice','purple','metal','star
 function btlGetPlatType(r){return BTL_PLAT_TYPES[Math.floor(r*BTL_PLAT_TYPES.length)];}
 // 배틀 발판 생성: 20% 확률로 특수 발판 (crumble/icy/blink/moving)
 // seed: platIdx, 결정론적 - rSpec(특수여부+종류), rExtra1(moveDir/blinkOffset), rExtra2(moveRange/blinkOff), rType(기본타입)
-function btlMakePlat(x,wy,pw,rType,rSpec,rExtra1,rExtra2){
-  const pl={x,worldY:wy,w:pw,h:14,type:btlGetPlatType(rType)};
+function btlMakePlat(x,wy,pw,rType,rSpec,rExtra1,rExtra2,id){
+  const pl={id,x,worldY:wy,w:pw,h:14,type:btlGetPlatType(rType)};
   if(rSpec<0.20){
     const kind=Math.floor(rSpec/0.05); // 0~3
     if(kind===0){
@@ -4609,7 +4609,7 @@ function startBattle(testMode){
       const r1=btlHash(seed,btl.platIdx*3),r2=btlHash(seed,btl.platIdx*3+1),r3=btlHash(seed,btl.platIdx*3+2),r4=btlHash(seed,btl.platIdx*3+77);
       const rSpec=btlHash(seed,btl.platIdx*3+111),rE1=btlHash(seed,btl.platIdx*3+155),rE2=btlHash(seed,btl.platIdx*3+199);
       wy-=70+r1*50;const pw=70+r2*80;
-      btl.platforms.push(btlMakePlat(r3*(W-pw),wy,pw,r4,rSpec,rE1,rE2));
+      btl.platforms.push(btlMakePlat(r3*(W-pw),wy,pw,r4,rSpec,rE1,rE2,btl.platIdx));
     }
   }
   btlRunning=true;btlLastTime=performance.now();BGM.battle();
@@ -4855,27 +4855,29 @@ function btlUpdate(dt){
       const r1=btlHash(btl.seed,btl.platIdx*3),r2=btlHash(btl.seed,btl.platIdx*3+1),r3=btlHash(btl.seed,btl.platIdx*3+2),r4=btlHash(btl.seed,btl.platIdx*3+77);
       const rSpec=btlHash(btl.seed,btl.platIdx*3+111),rE1=btlHash(btl.seed,btl.platIdx*3+155),rE2=btlHash(btl.seed,btl.platIdx*3+199);
       const gap=70+r1*50;topWY-=gap;const pw=70+r2*80;
-      btl.platforms.push(btlMakePlat(r3*(W-pw),topWY,pw,r4,rSpec,rE1,rE2));
+      btl.platforms.push(btlMakePlat(r3*(W-pw),topWY,pw,r4,rSpec,rE1,rE2,btl.platIdx));
     }
   }
   if(!btl.testMode){btl.platforms=btl.platforms.filter(p=>p.isShipPad||p.worldY-btl.camY<H+200);}
-  // 특수발판 업데이트 (vanish/blink/moving)
-  for(const pl of btl.platforms){
-    if(pl.vanishTriggered&&!pl.vanished){
-      pl.vanishTimer-=0.02*dt;pl.vanishAlpha=Math.max(0,pl.vanishTimer);
-      if(pl.vanishTimer<=0)pl.vanished=true;
-    }
-    if(pl.blink){
-      pl.blinkTimer-=dt;
-      if(pl.blinkTimer<=0){
-        pl.blinkOn=!pl.blinkOn;
-        pl.blinkTimer=pl.blinkOn?pl.blinkOnDur:pl.blinkOffDur;
+  // 특수발판 업데이트 (vanish/blink/moving) — 온라인 게스트는 호스트 sync 적용
+  if(!btl.online||onlineRole==='host'){
+    for(const pl of btl.platforms){
+      if(pl.vanishTriggered&&!pl.vanished){
+        pl.vanishTimer-=0.02*dt;pl.vanishAlpha=Math.max(0,pl.vanishTimer);
+        if(pl.vanishTimer<=0)pl.vanished=true;
       }
-    }
-    if(pl.moving&&!pl.frozen){
-      pl.x+=pl.moveSpeed*pl.moveDir*dt;
-      if(pl.x>pl.moveOriginX+pl.moveRange){pl.x=pl.moveOriginX+pl.moveRange;pl.moveDir=-1;}
-      else if(pl.x<pl.moveOriginX-pl.moveRange){pl.x=pl.moveOriginX-pl.moveRange;pl.moveDir=1;}
+      if(pl.blink){
+        pl.blinkTimer-=dt;
+        if(pl.blinkTimer<=0){
+          pl.blinkOn=!pl.blinkOn;
+          pl.blinkTimer=pl.blinkOn?pl.blinkOnDur:pl.blinkOffDur;
+        }
+      }
+      if(pl.moving&&!pl.frozen){
+        pl.x+=pl.moveSpeed*pl.moveDir*dt;
+        if(pl.x>pl.moveOriginX+pl.moveRange){pl.x=pl.moveOriginX+pl.moveRange;pl.moveDir=-1;}
+        else if(pl.x<pl.moveOriginX-pl.moveRange){pl.x=pl.moveOriginX-pl.moveRange;pl.moveDir=1;}
+      }
     }
   }
   for(const pt of btl.particles){pt.x+=pt.vx*dt;pt.y+=pt.vy*dt;pt.vy+=0.1*dt;pt.life-=pt.decay*dt;}
@@ -7157,7 +7159,7 @@ function startOnlineGame(msg){
     const r1=btlHash(seed,btl.platIdx*3),r2=btlHash(seed,btl.platIdx*3+1),r3=btlHash(seed,btl.platIdx*3+2),r4=btlHash(seed,btl.platIdx*3+77);
     const rSpec=btlHash(seed,btl.platIdx*3+111),rE1=btlHash(seed,btl.platIdx*3+155),rE2=btlHash(seed,btl.platIdx*3+199);
     wy-=70+r1*50;const pw=70+r2*80;
-    btl.platforms.push(btlMakePlat(r3*(W-pw),wy,pw,r4,rSpec,rE1,rE2));
+    btl.platforms.push(btlMakePlat(r3*(W-pw),wy,pw,r4,rSpec,rE1,rE2,btl.platIdx));
   }
   pendingInputs=[null,null,null,null];
   btlRunning=true;btlLastTime=performance.now();BGM.battle();
@@ -7214,9 +7216,23 @@ function sendOnlineState(){
     atk:cl.attacking?1:0,at:Math.round(cl.attackTimer||0),aa:+(cl.attackAngle||0).toFixed(3),
     lf:Math.round(cl.life||0),ci:cl.charId,sk:cl.skin||'default'
   }));
+  const plDyn=[];
+  for(const pl of btl.platforms){
+    if(pl.id==null)continue;
+    const isSpec=pl.vanish||pl.blink||pl.moving||pl.icy;
+    if(!isSpec)continue;
+    const e={i:pl.id};
+    if(pl.vanishTriggered)e.vt=1;
+    if(pl.vanished)e.vd=1;
+    if(pl.vanishTriggered&&!pl.vanished)e.va=+pl.vanishAlpha.toFixed(2);
+    if(pl.blink){e.bo=pl.blinkOn?1:0;e.bt=Math.round(pl.blinkTimer);}
+    if(pl.moving){e.mx=+pl.x.toFixed(1);e.md=pl.moveDir;}
+    if(pl.frozen)e.fz=1;
+    plDyn.push(e);
+  }
   ws.send(JSON.stringify({t:'st',
     cam:Math.round(btl.camY),spd:+btl.scrollSpeed.toFixed(2),
-    h:Math.round(btl.height),pi:btl.platIdx,
+    h:Math.round(btl.height),pi:btl.platIdx,pd:plDyn,
     st:btl.state,winner:btl.winner||null,
     cntd:Math.round(btl.countdown||0),
     hs:btl.hitStop>0?Math.round(btl.hitStop):0,
@@ -7304,9 +7320,22 @@ function applyHostState(st){
     const rSpec=btlHash(btl.seed,btl.platIdx*3+111),rE1=btlHash(btl.seed,btl.platIdx*3+155),rE2=btlHash(btl.seed,btl.platIdx*3+199);
     const topWY=Math.min(...btl.platforms.map(p=>p.worldY))-(70+r1*50);
     const pw=70+r2*80;
-    btl.platforms.push(btlMakePlat(r3*(W-pw),topWY,pw,r4,rSpec,rE1,rE2));
+    btl.platforms.push(btlMakePlat(r3*(W-pw),topWY,pw,r4,rSpec,rE1,rE2,btl.platIdx));
   }
   btl.platforms=btl.platforms.filter(p=>p.isShipPad||p.worldY-btl.camY<H+200);
+  // 특수발판 동적 상태 동기화
+  if(st.pd&&st.pd.length){
+    const byId={};for(const pl of btl.platforms)if(pl.id!=null)byId[pl.id]=pl;
+    for(const e of st.pd){
+      const pl=byId[e.i];if(!pl)continue;
+      if(e.vt)pl.vanishTriggered=true;
+      if(e.vd)pl.vanished=true;
+      if(e.va!=null)pl.vanishAlpha=e.va;
+      if(e.bo!=null){pl.blinkOn=!!e.bo;pl.blinkTimer=e.bt||0;}
+      if(e.mx!=null){pl.x=e.mx;pl.moveDir=e.md;}
+      if(e.fz){pl.frozen=true;pl.moving=false;}
+    }
+  }
   // 우주선 동기화
   if(st.ss&&!btl.shipSpawned){
     btl.shipSpawned=true;
