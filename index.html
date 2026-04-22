@@ -4547,8 +4547,31 @@ function btlMakePlayer(charId,x,facing,label,color,skin){
     bs,charId,charDef:c,label,color,_jumpHeld:false};
 }
 
-const BTL_PLAT_TYPES=['rock','dirt','grass','cloud','ice','purple','metal','star','asteroid','moon_surface'];
+const BTL_PLAT_TYPES=['rock','dirt','grass','cloud','ice','purple','metal','star','asteroid','moon_surface_s2'];
 function btlGetPlatType(r){return BTL_PLAT_TYPES[Math.floor(r*BTL_PLAT_TYPES.length)];}
+// 배틀 발판 생성: 20% 확률로 특수 발판 (crumble/icy/blink/moving)
+// seed: platIdx, 결정론적 - rSpec(특수여부+종류), rExtra1(moveDir/blinkOffset), rExtra2(moveRange/blinkOff), rType(기본타입)
+function btlMakePlat(x,wy,pw,rType,rSpec,rExtra1,rExtra2){
+  const pl={x,worldY:wy,w:pw,h:14,type:btlGetPlatType(rType)};
+  if(rSpec<0.20){
+    const kind=Math.floor(rSpec/0.05); // 0~3
+    if(kind===0){
+      pl.type='crumble_moon';pl.vanish=true;pl.vanishTimer=1;pl.vanishAlpha=1;pl.vanished=false;pl.vanishTriggered=false;
+    }else if(kind===1){
+      pl.type='ice_asteroid';pl.icy=true;
+    }else if(kind===2){
+      pl.type='blink';pl.blink=true;
+      const blinkOffset=rExtra1*180;
+      pl.blinkOn=blinkOffset<120;
+      pl.blinkTimer=blinkOffset<120?blinkOffset:blinkOffset-120;
+      pl.blinkOnDur=120;
+      pl.blinkOffDur=60+rExtra2*60;
+    }else{
+      pl.moving=true;pl.moveDir=rExtra1<0.5?1:-1;pl.moveRange=50+rExtra2*70;pl.moveOriginX=x;pl.moveSpeed=1+rExtra1*1.5;
+    }
+  }
+  return pl;
+}
 
 function startBattle(testMode){
   keys={};
@@ -4584,8 +4607,9 @@ function startBattle(testMode){
     while(wy>-H*2){
       btl.platIdx++;
       const r1=btlHash(seed,btl.platIdx*3),r2=btlHash(seed,btl.platIdx*3+1),r3=btlHash(seed,btl.platIdx*3+2),r4=btlHash(seed,btl.platIdx*3+77);
+      const rSpec=btlHash(seed,btl.platIdx*3+111),rE1=btlHash(seed,btl.platIdx*3+155),rE2=btlHash(seed,btl.platIdx*3+199);
       wy-=70+r1*50;const pw=70+r2*80;
-      btl.platforms.push({x:r3*(W-pw),worldY:wy,w:pw,h:14,type:btlGetPlatType(r4)});
+      btl.platforms.push(btlMakePlat(r3*(W-pw),wy,pw,r4,rSpec,rE1,rE2));
     }
   }
   btlRunning=true;btlLastTime=performance.now();BGM.battle();
@@ -4829,11 +4853,31 @@ function btlUpdate(dt){
     while(topWY>btl.camY-H*1.5){
       btl.platIdx++;
       const r1=btlHash(btl.seed,btl.platIdx*3),r2=btlHash(btl.seed,btl.platIdx*3+1),r3=btlHash(btl.seed,btl.platIdx*3+2),r4=btlHash(btl.seed,btl.platIdx*3+77);
+      const rSpec=btlHash(btl.seed,btl.platIdx*3+111),rE1=btlHash(btl.seed,btl.platIdx*3+155),rE2=btlHash(btl.seed,btl.platIdx*3+199);
       const gap=70+r1*50;topWY-=gap;const pw=70+r2*80;
-      btl.platforms.push({x:r3*(W-pw),worldY:topWY,w:pw,h:14,type:btlGetPlatType(r4)});
+      btl.platforms.push(btlMakePlat(r3*(W-pw),topWY,pw,r4,rSpec,rE1,rE2));
     }
   }
   if(!btl.testMode){btl.platforms=btl.platforms.filter(p=>p.isShipPad||p.worldY-btl.camY<H+200);}
+  // 특수발판 업데이트 (vanish/blink/moving)
+  for(const pl of btl.platforms){
+    if(pl.vanishTriggered&&!pl.vanished){
+      pl.vanishTimer-=0.02*dt;pl.vanishAlpha=Math.max(0,pl.vanishTimer);
+      if(pl.vanishTimer<=0)pl.vanished=true;
+    }
+    if(pl.blink){
+      pl.blinkTimer-=dt;
+      if(pl.blinkTimer<=0){
+        pl.blinkOn=!pl.blinkOn;
+        pl.blinkTimer=pl.blinkOn?pl.blinkOnDur:pl.blinkOffDur;
+      }
+    }
+    if(pl.moving&&!pl.frozen){
+      pl.x+=pl.moveSpeed*pl.moveDir*dt;
+      if(pl.x>pl.moveOriginX+pl.moveRange){pl.x=pl.moveOriginX+pl.moveRange;pl.moveDir=-1;}
+      else if(pl.x<pl.moveOriginX-pl.moveRange){pl.x=pl.moveOriginX-pl.moveRange;pl.moveDir=1;}
+    }
+  }
   for(const pt of btl.particles){pt.x+=pt.vx*dt;pt.y+=pt.vy*dt;pt.vy+=0.1*dt;pt.life-=pt.decay*dt;}
   btl.particles=btl.particles.filter(pt=>pt.life>0);
   btlUpdateProjectiles(dt);
@@ -4887,10 +4931,13 @@ function btlUpdatePlayer(p,dt,kL,kR,kJ,kAtk){
     // 기절 중 착지 체크
     p.onGround=false;
     for(const pl of btl.platforms){
+      if(pl.vanished)continue;
+      if(pl.blink&&!pl.blinkOn)continue;
       if(p.x+p.w<=pl.x||p.x>=pl.x+pl.w)continue;
       const pBot=p.worldY+p.h,pBotPrev=pBot-p.vy*dt;
       if(pBotPrev<=pl.worldY+2&&pBot>=pl.worldY&&p.vy>0){
         p.worldY=pl.worldY-p.h;p.vy=0;p.onGround=true;
+        if(pl.vanish&&!pl.vanishTriggered)pl.vanishTriggered=true;
       }
     }
     return;
@@ -5137,6 +5184,8 @@ function btlUpdatePlayer(p,dt,kL,kR,kJ,kAtk){
   // 충돌
   p.onGround=false;
   for(const pl of btl.platforms){
+    if(pl.vanished)continue;
+    if(pl.blink&&!pl.blinkOn)continue;
     if(p.x+p.w<=pl.x||p.x>=pl.x+pl.w)continue;
     const pBot=p.worldY+p.h,pBotPrev=pBot-p.vy*dt;
     if(pBotPrev<=pl.worldY+2&&pBot>=pl.worldY&&p.vy>0){
@@ -5144,6 +5193,8 @@ function btlUpdatePlayer(p,dt,kL,kR,kJ,kAtk){
       // 착지하면 넉백 해제 + 점프 완전 회복
       if(p.knocked){p.knocked=false;p.flyTimer=0;}
       p.jumps=p.maxJumps;
+      if(pl.vanish&&!pl.vanishTriggered)pl.vanishTriggered=true;
+      if(pl.icy&&!pl.frozen){p.vx*=1.14;if(Math.abs(p.vx)>p.speed*2)p.vx=Math.sign(p.vx)*p.speed*2;}
       if(p.freezesPlatforms&&pl.moving&&!pl.frozen){
         pl.frozen=true;pl.moving=false;pl.moveSpeed=0;
         btlSpawnPt(p.x+p.w/2,pl.worldY-btl.camY,'#aaddff',12);
@@ -5772,7 +5823,7 @@ function btlCheckFall(p){
 }
 
 function btlRespawn(p){
-  const vis=btl.platforms.filter(pl=>pl.worldY-btl.camY>30&&pl.worldY-btl.camY<H*0.35);
+  const vis=btl.platforms.filter(pl=>!pl.vanished&&!(pl.blink&&!pl.blinkOn)&&pl.worldY-btl.camY>30&&pl.worldY-btl.camY<H*0.35);
   if(vis.length>0){const pl=vis[Math.floor(Math.random()*vis.length)];p.x=pl.x+pl.w/2-p.w/2;p.worldY=pl.worldY-p.h-10;}
   else{p.x=W/2-p.w/2;p.worldY=btl.camY+60;}
   p.vx=0;p.vy=0;p.jumps=p.maxJumps;p.crouching=false;p.crouchTimer=0;p.flying=false;p.flyTimer=0;p.spinAngle=0;p.stunTimer=0;p.knocked=false;p.slowTimer=0;p.floatTimer=0;p.grabArm=null;p.attacking=false;
@@ -5803,7 +5854,10 @@ function btlRender(){
   for(const pl of btl.platforms){
     const sy=pl.worldY-btl.camY;
     if(sy>H+20||sy<-30)continue;
-    drawPlatform(pl.x,sy,pl.w,pl.h,pl.type);
+    if(pl.vanished)continue;
+    if(pl.blink&&!pl.blinkOn)continue;
+    if(pl.vanishTriggered){ctx.globalAlpha=pl.vanishAlpha;drawPlatform(pl.x,sy,pl.w,pl.h,pl.type);ctx.globalAlpha=1;}
+    else drawPlatform(pl.x,sy,pl.w,pl.h,pl.type);
   }
   for(const pt of btl.particles){ctx.globalAlpha=pt.life;ctx.fillStyle=pt.col;ctx.fillRect(pt.x-pt.sz/2,pt.y-pt.sz/2,pt.sz,pt.sz);}
   ctx.globalAlpha=1;
@@ -7101,8 +7155,9 @@ function startOnlineGame(msg){
   while(wy>-H*2){
     btl.platIdx++;
     const r1=btlHash(seed,btl.platIdx*3),r2=btlHash(seed,btl.platIdx*3+1),r3=btlHash(seed,btl.platIdx*3+2),r4=btlHash(seed,btl.platIdx*3+77);
+    const rSpec=btlHash(seed,btl.platIdx*3+111),rE1=btlHash(seed,btl.platIdx*3+155),rE2=btlHash(seed,btl.platIdx*3+199);
     wy-=70+r1*50;const pw=70+r2*80;
-    btl.platforms.push({x:r3*(W-pw),worldY:wy,w:pw,h:14,type:btlGetPlatType(r4)});
+    btl.platforms.push(btlMakePlat(r3*(W-pw),wy,pw,r4,rSpec,rE1,rE2));
   }
   pendingInputs=[null,null,null,null];
   btlRunning=true;btlLastTime=performance.now();BGM.battle();
@@ -7246,8 +7301,10 @@ function applyHostState(st){
   while(btl.platIdx<(st.pi||0)){
     btl.platIdx++;
     const r1=btlHash(btl.seed,btl.platIdx*3),r2=btlHash(btl.seed,btl.platIdx*3+1),r3=btlHash(btl.seed,btl.platIdx*3+2),r4=btlHash(btl.seed,btl.platIdx*3+77);
+    const rSpec=btlHash(btl.seed,btl.platIdx*3+111),rE1=btlHash(btl.seed,btl.platIdx*3+155),rE2=btlHash(btl.seed,btl.platIdx*3+199);
     const topWY=Math.min(...btl.platforms.map(p=>p.worldY))-(70+r1*50);
-    btl.platforms.push({x:r3*(W-(70+r2*80)),worldY:topWY,w:70+r2*80,h:14,type:btlGetPlatType(r4)});
+    const pw=70+r2*80;
+    btl.platforms.push(btlMakePlat(r3*(W-pw),topWY,pw,r4,rSpec,rE1,rE2));
   }
   btl.platforms=btl.platforms.filter(p=>p.isShipPad||p.worldY-btl.camY<H+200);
   // 우주선 동기화
